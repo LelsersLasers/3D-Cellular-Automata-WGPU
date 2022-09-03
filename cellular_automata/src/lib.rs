@@ -812,14 +812,17 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
-        let fps_str =   format!("FPS: {:.0}\n", 1. / self.delta);
-        let ticks_str = format!("Ticks: {}\n", self.ticks);
+        let fps_str     = format!("FPS: {:.0}\n", 1. / self.delta);
+        let ticks_str   = format!("Ticks: {}\n", self.ticks);
 
-        let section = glyph_brush::Section::default()
+        let mut section = glyph_brush::Section::default()
             .with_screen_position((12., 12.))
             .add_text(glyph_brush::Text::new(&fps_str[..]).with_color(TEXT_COLOR).with_scale(16.))
             .add_text(glyph_brush::Text::new(&ticks_str[..]).with_color(TEXT_COLOR).with_scale(16.))
             .with_layout(glyph_brush::Layout::default_wrap().h_align(glyph_brush::HorizontalAlign::Left));
+        if self.paused {
+            section = section.add_text(glyph_brush::Text::new("PAUSED").with_color(TEXT_COLOR).with_scale(16.));
+        }
         self.brush.queue(&section);
 
         let text_buffer = self.brush.draw(&self.device, &view, &self.queue);
