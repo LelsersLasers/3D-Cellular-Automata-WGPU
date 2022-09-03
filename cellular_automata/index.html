@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3d Cellular Automata [WGPU/Rust]</title>
+</head>
+
+<body id="body" style="margin: 0">
+  <script type="module">
+      import init from "./pkg/cellular_automata.js";
+      init().then(() => console.log("WASM Loaded"));
+  </script>
+  <style>
+      canvas {
+          background-color: #2b313f;
+          border: 2px solid #EBCB8B;
+      }
+  </style>
+</body>
+
+</html>

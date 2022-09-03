@@ -1,0 +1,44 @@
+[package]
+name = "cellular_automata"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cfg-if = "1"
+winit = "0.26"
+env_logger = "0.9"
+log = "0.4"
+wgpu = "0.13"
+pollster = "0.2"
+bytemuck = { version = "1.4", features = [ "derive" ] }
+# anyhow = "1.0"
+cgmath = "0.18"
+instant = "0.1"
+
+glyph_brush = "0.7.3"
+wgpu_text = "0.6.3"
+
+rand = "0.8.5" 
+getrandom = { version = "0.2.7", features = ["js"] }
+
+# [dependencies.image]
+# version = "0.24"
+# default-features = false
+# features = ["png", "jpeg"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+console_log = "0.2.0"
+wgpu = { version = "0.13", features = ["webgl"]}
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+]}
