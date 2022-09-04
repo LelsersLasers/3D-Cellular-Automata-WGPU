@@ -461,6 +461,7 @@ struct State {
     last_frame: f64,
     delta: f64,
     ticks: u64,
+    backend: wgpu::Backend,
 
     pause_tk: bool,
     paused: bool,
@@ -498,6 +499,8 @@ impl State {
                 }
             }
         };
+        let backend = adapter.get_info().backend;
+        println!("Current backend:: {:#?}", backend);
         println!(
             "Supported texture formats: {:#?}",
             surface.get_supported_formats(&adapter)
@@ -691,6 +694,7 @@ impl State {
             last_frame,
             delta,
             ticks,
+            backend,
             pause_tk,
             paused,
             cells,
@@ -814,11 +818,13 @@ impl State {
 
         let fps_str     = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str   = format!("Ticks: {}\n", self.ticks);
+        let backend_str = format!("Backend: {:?}\n", self.backend);
 
         let mut section = glyph_brush::Section::default()
             .with_screen_position((12., 12.))
             .add_text(glyph_brush::Text::new(&fps_str[..]).with_color(TEXT_COLOR).with_scale(16.))
             .add_text(glyph_brush::Text::new(&ticks_str[..]).with_color(TEXT_COLOR).with_scale(16.))
+            .add_text(glyph_brush::Text::new(&backend_str).with_color(TEXT_COLOR).with_scale(16.))
             .with_layout(glyph_brush::Layout::default_wrap().h_align(glyph_brush::HorizontalAlign::Left));
         if self.paused {
             section = section.add_text(glyph_brush::Text::new("PAUSED").with_color(TEXT_COLOR).with_scale(16.));
