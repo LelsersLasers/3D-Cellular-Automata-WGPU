@@ -425,11 +425,13 @@ impl CameraStaging {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
     view_proj: [[f32; 4]; 4],
+    transform: [[f32; 4]; 4],
 }
 impl CameraUniform {
     fn new() -> Self {
         Self {
             view_proj: cgmath::Matrix4::identity().into(),
+            transform: cgmath::Matrix4::identity().into(),
         }
     }
 }
@@ -441,7 +443,8 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
 
-    brush: wgpu_text::TextBrush<wgpu_text::font::FontRef<'static>, glyph_brush::DefaultSectionHasher>,
+    brush:
+        wgpu_text::TextBrush<wgpu_text::font::FontRef<'static>, glyph_brush::DefaultSectionHasher>,
 
     camera_staging: CameraStaging,
     camera_uniform: CameraUniform,
@@ -465,6 +468,8 @@ struct State {
 
     pause_tk: bool,
     paused: bool,
+
+    scissor_rect: (u32, u32, u32, u32),
 
     cells: Vec<Cell>,
 }
@@ -664,7 +669,9 @@ impl State {
         });
 
         let font: &[u8] = include_bytes!("../assets/PixelSquare.ttf");
-        let brush = wgpu_text::BrushBuilder::using_font_bytes(font).unwrap().build(&device, &config);
+        let brush = wgpu_text::BrushBuilder::using_font_bytes(font)
+            .unwrap()
+            .build(&device, &config);
 
         let last_frame = instant::now();
         let delta = 0.2;
@@ -672,6 +679,8 @@ impl State {
 
         let pause_tk = false;
         let paused = false;
+
+        let scissor_rect = (0, 0, size.width, size.height);
 
         Self {
             surface,
@@ -697,6 +706,7 @@ impl State {
             backend,
             pause_tk,
             paused,
+            scissor_rect,
             cells,
         }
     }
@@ -708,7 +718,19 @@ impl State {
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
-            self.brush.resize_view(self.config.width as f32, self.config.height as f32, &self.queue);
+            self.brush.resize_view(
+                self.config.width as f32,
+                self.config.height as f32,
+                &self.queue,
+            );
+
+            let width = std::cmp::min(self.size.width, (self.size.height * 16) / 9);
+            let height = std::cmp::min(self.size.height, (self.size.width * 9) / 16);
+            let x = (self.size.width - width) / 2;
+            let y = (self.size.height - height) / 2;
+            self.scissor_rect = (x, y, width, height);
+            self.camera_uniform.transform[0][0] = width as f32 / self.size.width as f32;
+            self.camera_uniform.transform[1][1] = height as f32 / self.size.height as f32;
         }
     }
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -808,6 +830,14 @@ impl State {
                     stencil_ops: None,
                 }),
             });
+
+            render_pass.set_scissor_rect(
+                self.scissor_rect.0,
+                self.scissor_rect.1,
+                self.scissor_rect.2,
+                self.scissor_rect.3,
+            );
+
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -816,18 +846,40 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
-        let fps_str     = format!("FPS: {:.0}\n", 1. / self.delta);
-        let ticks_str   = format!("Ticks: {}\n", self.ticks);
+        let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
+        let ticks_str = format!("Ticks: {}\n", self.ticks);
         let backend_str = format!("Backend: {:?}\n", self.backend);
+        let font_size = self.scissor_rect.2 as f32 / 75.;
 
         let mut section = glyph_brush::Section::default()
-            .with_screen_position((12., 12.))
-            .add_text(glyph_brush::Text::new(&fps_str[..]).with_color(TEXT_COLOR).with_scale(16.))
-            .add_text(glyph_brush::Text::new(&ticks_str[..]).with_color(TEXT_COLOR).with_scale(16.))
-            .add_text(glyph_brush::Text::new(&backend_str).with_color(TEXT_COLOR).with_scale(16.))
-            .with_layout(glyph_brush::Layout::default_wrap().h_align(glyph_brush::HorizontalAlign::Left));
+            .with_screen_position((
+                self.scissor_rect.0 as f32 + self.scissor_rect.2 as f32 / 100.,
+                self.scissor_rect.1 as f32 + self.scissor_rect.3 as f32 / 100.,
+            ))
+            .add_text(
+                glyph_brush::Text::new(&fps_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            )
+            .add_text(
+                glyph_brush::Text::new(&ticks_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            )
+            .add_text(
+                glyph_brush::Text::new(&backend_str)
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            )
+            .with_layout(
+                glyph_brush::Layout::default_wrap().h_align(glyph_brush::HorizontalAlign::Left),
+            );
         if self.paused {
-            section = section.add_text(glyph_brush::Text::new("PAUSED").with_color(TEXT_COLOR).with_scale(16.));
+            section = section.add_text(
+                glyph_brush::Text::new("PAUSED")
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            );
         }
         self.brush.queue(&section);
 
@@ -967,9 +1019,21 @@ pub async fn run() {
                         ..
                     } => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(physical_size) => {
+                        // let wanted_size = winit::dpi::PhysicalSize::new(
+                        //     physical_size.width,
+                        //     (physical_size.width * 9) / 16,
+                        // );
+                        // window.set_inner_size(wanted_size);
+                        // state.resize(wanted_size);
                         state.resize(*physical_size);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        // let wanted_size = winit::dpi::PhysicalSize::new(
+                        //     new_inner_size.width,
+                        //     (new_inner_size.width * 9) / 16,
+                        // );
+                        // window.set_inner_size(wanted_size);
+                        // state.resize(wanted_size);
                         state.resize(**new_inner_size);
                     }
                     _ => {}
