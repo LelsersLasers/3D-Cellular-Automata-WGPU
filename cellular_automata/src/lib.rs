@@ -14,7 +14,6 @@ mod texture;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-
 struct ToggleKey {
     was_down: bool,
 }
@@ -30,9 +29,8 @@ impl ToggleKey {
             self.was_down = false;
         }
         false
-	}
+    }
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -1012,7 +1010,6 @@ pub async fn run() {
 
     #[cfg(target_arch = "wasm32")]
     {
-
         window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
 
         use winit::platform::web::WindowExtWebSys;
