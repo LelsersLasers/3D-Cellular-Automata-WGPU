@@ -499,6 +499,8 @@ struct State {
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
 
+    compute_pipeline: wgpu::ComputePipeline,
+
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
@@ -644,6 +646,17 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
+        let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
+        });
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute Pipeline"),
+            layout: None,
+            module: &compute_shader,
+            entry_point: "main",
+        });
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -747,6 +760,7 @@ impl State {
             camera_bind_group,
             depth_texture,
             render_pipeline,
+            compute_pipeline,
             vertex_buffer,
             index_buffer,
             num_indices,
@@ -869,6 +883,11 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            compute_pass.set_pipeline(&self.compute_pipeline);
+            compute_pass.dispatch_workgroups(1, 1, 1);
+        }
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
