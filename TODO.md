@@ -1,6 +1,7 @@
 # TODO
 
 - Drag speed scales with window size??
+- Fix drag for mobile!
 
 - Mouse / touch inputs
     - Scroll wheel
