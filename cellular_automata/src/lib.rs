@@ -323,6 +323,7 @@ struct Camera {
 
     turn_speed: f64,
     zoom_speed: f64,
+    drag_speed: f64,
 
     up_down: bool,
     down_down: bool,
@@ -330,6 +331,9 @@ struct Camera {
     right_down: bool,
     forward_down: bool,
     backward_down: bool,
+
+    lmb_down: bool,
+    last_mouse_pos: (f64, f64),
 }
 impl Camera {
     fn build_view_projection_matrix(&self) -> cgmath::Matrix4<f32> {
@@ -376,6 +380,29 @@ impl Camera {
                     }
                     _ => false,
                 }
+            }
+            &WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                self.lmb_down = state == ElementState::Pressed;
+                true
+            }
+            &WindowEvent::CursorMoved {
+                position,
+                ..
+            } => {
+                if self.lmb_down {
+                    let (x, y) = (position.x, position.y);
+                    let (dx, dy) = (x - self.last_mouse_pos.0, y - self.last_mouse_pos.1);
+                    self.lon -= dx * self.drag_speed;
+                    self.lat += dy * self.drag_speed;
+                    self.update_eye();
+                    self.last_mouse_pos = (position.x, position.y);
+                }
+                self.last_mouse_pos = (position.x, position.y);
+                true
             }
             _ => false,
         }
@@ -487,9 +514,6 @@ struct State {
     p_tk: ToggleKey,
     rmb_tk: ToggleKey,
 
-    lmb_down: bool,
-    last_mouse_pos: (f64, f64),
-
     paused: bool,
 
     scissor_rect: (u32, u32, u32, u32),
@@ -572,12 +596,15 @@ impl State {
             radius: CELL_BOUNDS as f64 * 2.5,
             turn_speed: std::f64::consts::PI / 4.,
             zoom_speed: CELL_BOUNDS as f64 / 4.,
+            drag_speed: 1. / 200.,
             up_down: false,
             down_down: false,
             left_down: false,
             right_down: false,
             forward_down: false,
             backward_down: false,
+            lmb_down: false,
+            last_mouse_pos: (0., 0.),
         };
         camera.update_eye();
 
@@ -703,9 +730,6 @@ impl State {
         let p_tk = ToggleKey::new();
         let rmb_tk = ToggleKey::new();
 
-        let lmb_down = false;
-        let last_mouse_pos = (0., 0.);
-
         let paused = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
@@ -734,8 +758,6 @@ impl State {
             backend,
             p_tk,
             rmb_tk,
-            lmb_down,
-            last_mouse_pos,
             paused,
             scissor_rect,
             cells,
@@ -801,30 +823,15 @@ impl State {
             }
             &WindowEvent::MouseInput {
                 state,
-                button,
+                button: MouseButton::Right,
                 ..
             } => {
-                if button == MouseButton::Right {
-                    if self.rmb_tk.down(state == ElementState::Pressed) {
-                        self.paused = !self.paused;
-                    }
-                } else if button == MouseButton::Left {
-                    self.lmb_down = state == ElementState::Pressed;
+                if self.rmb_tk.down(state == ElementState::Pressed) {
+                    self.paused = !self.paused;
                 }
-            }
-            &WindowEvent::CursorMoved {
-                position,
-                ..
-            } => {
-                if self.lmb_down {
-                    let (x, y) = (position.x, position.y);
-                    let (dx, dy) = (x - self.last_mouse_pos.0, y - self.last_mouse_pos.1);
-                    self.camera_staging.camera.lon -= dx * 0.00005625;
-                    self.camera_staging.camera.lat += dy * 0.0001;
-                    self.camera_staging.camera.update_eye();
-                } else {
-                    self.last_mouse_pos = (position.x, position.y);
-                }
+                // } else if button == MouseButton::Left {
+                //     self.lmb_down = state == ElementState::Pressed;
+                // }
             }
             _ => {}
         }
