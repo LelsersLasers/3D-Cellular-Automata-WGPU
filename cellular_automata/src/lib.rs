@@ -14,6 +14,26 @@ mod texture;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+
+struct ToggleKey {
+    was_down: bool,
+}
+impl ToggleKey {
+    pub fn new() -> Self {
+        Self { was_down: false }
+    }
+    fn down(&mut self, state: bool) -> bool {
+        if !self.was_down && state {
+            self.was_down = true;
+            return true;
+        } else if !state {
+            self.was_down = false;
+        }
+        false
+	}
+}
+
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -466,7 +486,9 @@ struct State {
     ticks: u64,
     backend: wgpu::Backend,
 
-    pause_tk: bool,
+    p_tk: ToggleKey,
+    lmb_tk: ToggleKey,
+
     paused: bool,
 
     scissor_rect: (u32, u32, u32, u32),
@@ -677,7 +699,9 @@ impl State {
         let delta = 0.2;
         let ticks = 0;
 
-        let pause_tk = false;
+        let p_tk = ToggleKey::new();
+        let lmb_tk = ToggleKey::new();
+
         let paused = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
@@ -704,7 +728,8 @@ impl State {
             delta,
             ticks,
             backend,
-            pause_tk,
+            p_tk,
+            lmb_tk,
             paused,
             scissor_rect,
             cells,
@@ -761,16 +786,20 @@ impl State {
                         }
                     }
                     VirtualKeyCode::P => {
-                        if pressed {
-                            if !self.pause_tk {
-                                self.paused = !self.paused;
-                            }
-                            self.pause_tk = true;
-                        } else {
-                            self.pause_tk = false;
+                        if self.p_tk.down(pressed) {
+                            self.paused = !self.paused;
                         }
                     }
                     _ => {}
+                }
+            }
+            &WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                if self.lmb_tk.down(state == ElementState::Pressed) {
+                    self.paused = !self.paused;
                 }
             }
             _ => {}
