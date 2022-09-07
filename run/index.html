@@ -8,15 +8,37 @@
     <title>3d Cellular Automata [WGPU/Rust]</title>
 </head>
 
-<body id="body" style="margin: 0">
+<body id="body" style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
   <script type="module">
       import init from "./pkg/cellular_automata.js";
-      init().then(() => console.log("WASM Loaded"));
+      init().then(() => {
+        console.log("WASM Loaded");
+        resizeCanvas();
+    });
+  </script>
+  <script>
+        function resizeCanvas() {
+            const canvas = document.getElementsByTagName("canvas")[0];
+            if (canvas) {
+                let maxWidth = (window.innerWidth - 4);
+                let maxHeight = (window.innerHeight - 4);
+                let width = Math.min(maxWidth, (maxHeight * 16) / 9);
+                let height = Math.min(maxHeight, (maxWidth * 9) / 16);
+                canvas.style.width = width + "px";
+                canvas.style.height = height + "px";
+            }
+        }
   </script>
   <style>
       canvas {
-          background-color: #2b313f;
-          border: 2px solid #EBCB8B;
+            background-color: #2b313f;
+            border: 2px solid #EBCB8B;
+            margin: 0 auto;
+            padding: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); 
       }
   </style>
 </body>
