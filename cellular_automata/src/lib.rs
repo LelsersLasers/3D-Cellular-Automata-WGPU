@@ -485,7 +485,10 @@ struct State {
     backend: wgpu::Backend,
 
     p_tk: ToggleKey,
-    lmb_tk: ToggleKey,
+    rmb_tk: ToggleKey,
+
+    lmb_down: bool,
+    last_mouse_pos: (f64, f64),
 
     paused: bool,
 
@@ -698,7 +701,10 @@ impl State {
         let ticks = 0;
 
         let p_tk = ToggleKey::new();
-        let lmb_tk = ToggleKey::new();
+        let rmb_tk = ToggleKey::new();
+
+        let lmb_down = false;
+        let last_mouse_pos = (0., 0.);
 
         let paused = false;
 
@@ -727,7 +733,9 @@ impl State {
             ticks,
             backend,
             p_tk,
-            lmb_tk,
+            rmb_tk,
+            lmb_down,
+            last_mouse_pos,
             paused,
             scissor_rect,
             cells,
@@ -793,11 +801,29 @@ impl State {
             }
             &WindowEvent::MouseInput {
                 state,
-                button: MouseButton::Left,
+                button,
                 ..
             } => {
-                if self.lmb_tk.down(state == ElementState::Pressed) {
-                    self.paused = !self.paused;
+                if button == MouseButton::Right {
+                    if self.rmb_tk.down(state == ElementState::Pressed) {
+                        self.paused = !self.paused;
+                    }
+                } else if button == MouseButton::Left {
+                    self.lmb_down = state == ElementState::Pressed;
+                }
+            }
+            &WindowEvent::CursorMoved {
+                position,
+                ..
+            } => {
+                if self.lmb_down {
+                    let (x, y) = (position.x, position.y);
+                    let (dx, dy) = (x - self.last_mouse_pos.0, y - self.last_mouse_pos.1);
+                    self.camera_staging.camera.lon -= dx * 0.00005625;
+                    self.camera_staging.camera.lat += dy * 0.0001;
+                    self.camera_staging.camera.update_eye();
+                } else {
+                    self.last_mouse_pos = (position.x, position.y);
                 }
             }
             _ => {}
