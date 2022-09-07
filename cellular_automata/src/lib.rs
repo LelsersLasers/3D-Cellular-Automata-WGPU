@@ -854,7 +854,7 @@ impl State {
         let mut section = glyph_brush::Section::default()
             .with_screen_position((
                 self.scissor_rect.0 as f32 + self.scissor_rect.2 as f32 / 100.,
-                self.scissor_rect.1 as f32 + self.scissor_rect.3 as f32 / 100.,
+                self.scissor_rect.1 as f32 + self.scissor_rect.2 as f32 / 100.,
             ))
             .add_text(
                 glyph_brush::Text::new(&fps_str[..])
@@ -983,9 +983,8 @@ pub async fn run() {
 
     #[cfg(target_arch = "wasm32")]
     {
-        use winit::dpi::PhysicalSize;
 
-        window.set_inner_size(PhysicalSize::new(800, 450));
+        window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
@@ -1019,21 +1018,9 @@ pub async fn run() {
                         ..
                     } => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(physical_size) => {
-                        // let wanted_size = winit::dpi::PhysicalSize::new(
-                        //     physical_size.width,
-                        //     (physical_size.width * 9) / 16,
-                        // );
-                        // window.set_inner_size(wanted_size);
-                        // state.resize(wanted_size);
                         state.resize(*physical_size);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        // let wanted_size = winit::dpi::PhysicalSize::new(
-                        //     new_inner_size.width,
-                        //     (new_inner_size.width * 9) / 16,
-                        // );
-                        // window.set_inner_size(wanted_size);
-                        // state.resize(wanted_size);
                         state.resize(**new_inner_size);
                     }
                     _ => {}
