@@ -1,8 +1,9 @@
 # TODO
 
+- Drag speed scales with window size??
+
 - Mouse / touch inputs
     - Scroll wheel
-    - Drag to spin
     - Support for later features
         - On screen buttons?
 - Color modes [m]
