@@ -389,10 +389,7 @@ impl Camera {
                 self.lmb_down = state == ElementState::Pressed;
                 true
             }
-            &WindowEvent::CursorMoved {
-                position,
-                ..
-            } => {
+            &WindowEvent::CursorMoved { position, .. } => {
                 if self.lmb_down {
                     let (x, y) = (position.x, position.y);
                     let (dx, dy) = (x - self.last_mouse_pos.0, y - self.last_mouse_pos.1);
@@ -884,7 +881,8 @@ impl State {
                 label: Some("Render Encoder"),
             });
         {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            let mut compute_pass =
+                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.dispatch_workgroups(1, 1, 1);
         }
