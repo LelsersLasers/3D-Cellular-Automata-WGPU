@@ -6,6 +6,8 @@ use winit::{
 
 use wgpu::util::DeviceExt;
 
+use pollster::FutureExt as _;
+
 use cgmath::prelude::*;
 
 use rand::prelude::*;
@@ -997,17 +999,24 @@ impl State {
             );
 
             let compute_buffer_slice = compute_staging_buffer.slice(..);
-            let compute_buffer_future = compute_buffer_slice.map_async(wgpu::MapMode::Read, |_x| {
-                // let _data = compute_buffer_slice.get_mapped_range();
-
-                // let out: Vec<u32> = data
-                //     .chunks_exact(4)
-                //     .map(|b| u32::from_ne_bytes(b.try_into().unwrap()))
-                //     .collect();
-            });
+            let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+            compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+            
             self.device.poll(wgpu::Maintain::Wait);
-            // drop(data);
-            compute_staging_buffer.unmap();
+
+            if let Some(Ok(())) = receiver.receive().block_on() {
+                let data = compute_buffer_slice.get_mapped_range();
+                let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
+        
+                drop(data);
+                compute_staging_buffer.unmap();
+                println!("{}", result.len());
+        
+                // Returns data from buffer
+                // Some(result)
+            } else {
+                panic!("failed to run compute on gpu!")
+            }
         }
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

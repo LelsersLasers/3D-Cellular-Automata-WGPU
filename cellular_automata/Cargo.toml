@@ -23,6 +23,7 @@ instant = "0.1"
 glyph_brush = "0.7.3"
 wgpu_text = "0.6.3"
 
+futures-intrusive = "^0.4"
 rand = "0.8.5" 
 getrandom = { version = "0.2.7", features = ["js"] }
 
