@@ -560,7 +560,7 @@ impl State {
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
 
-        println!("Backends list: {:#?}", wgpu::Backends::all());
+        println!("\nBackends list: {:#?}", wgpu::Backends::all());
         let adapter = match instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -587,7 +587,7 @@ impl State {
         let backend = adapter.get_info().backend;
         println!("Current backend:: {:#?}", backend);
         println!(
-            "Supported texture formats: {:#?}",
+            "Supported texture formats: {:#?}\n",
             surface.get_supported_formats(&adapter)
         );
 
@@ -762,7 +762,6 @@ impl State {
         //     contents: bytemuck::cast_slice(&instance_data),
         //     usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         // });
-        println!("b");
         let compute_storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Compute Storage Buffer"),
             contents: bytemuck::cast_slice(&simple_cells),
@@ -770,16 +769,13 @@ impl State {
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
         });
-        println!("c");
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Compute Pipeline"),
             layout: None,
             module: &compute_shader,
             entry_point: "main",
         });
-        println!("d");
         let compute_bind_group_layout = compute_pipeline.get_bind_group_layout(0);
-        println!("e");
 
         let mut rules = Rules {
             survival: [Wrapped {x: 0, padding: [0; 3]}; 27],
@@ -796,7 +792,6 @@ impl State {
             contents: bytemuck::cast_slice(&[rules]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-        println!("bro");
 
         let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Compute Bind Group"),
@@ -812,7 +807,6 @@ impl State {
                 },
             ]
         });
-        println!("f");
 
         let font: &[u8] = include_bytes!("../assets/PixelSquare.ttf");
         let brush = wgpu_text::BrushBuilder::using_font_bytes(font)
@@ -938,7 +932,7 @@ impl State {
     fn update(&mut self) {
         if !self.paused {
             self.count_neighbors();
-            self.sync_cells();
+            // self.sync_cells();
             self.ticks += 1;
         }
 
@@ -968,11 +962,9 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        println!("g");
         self.calc_shader_data();
         let size = self.simple_cells.len() as u64
             * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress;
-        println!("F");
         let compute_staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Staging Buffer"),
             size,
@@ -981,7 +973,6 @@ impl State {
         });
 
         {
-            println!("A");
             let mut compute_pass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             compute_pass.set_pipeline(&self.compute_pipeline);
@@ -1010,7 +1001,13 @@ impl State {
         
                 drop(data);
                 compute_staging_buffer.unmap();
+                
                 println!("{}", result.len());
+
+                for i in 0..result.len() {
+                    self.cells[i].hp = result[i].hp;
+                    // println!("{}", self.cells[i].hp);
+                }
         
                 // Returns data from buffer
                 // Some(result)
