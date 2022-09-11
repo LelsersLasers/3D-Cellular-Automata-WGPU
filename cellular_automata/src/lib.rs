@@ -496,6 +496,8 @@ struct State {
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
 
+    compute_storage_buffer: wgpu::Buffer,
+    compute_bind_group: wgpu::BindGroup,
     compute_pipeline: wgpu::ComputePipeline,
 
     vertex_buffer: wgpu::Buffer,
@@ -643,17 +645,6 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
-        });
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Compute Pipeline"),
-            layout: None,
-            module: &compute_shader,
-            entry_point: "main",
-        });
-
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -728,6 +719,43 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
+        });
+        // let compute_staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        //     label: Some("Compute Staging Buffer"),
+        //     contents: bytemuck::cast_slice(&instance_data),
+        //     usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        // });
+        println!("b");
+        let compute_storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Compute Storage Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+        });
+        println!("c");
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute Pipeline"),
+            layout: None,
+            module: &compute_shader,
+            entry_point: "main",
+        });
+        println!("d");
+        let compute_bind_group_layout = compute_pipeline.get_bind_group_layout(0);
+        println!("e");
+        let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &compute_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: compute_storage_buffer.as_entire_binding(),
+            }],
+        });
+        println!("f");
+
         let font: &[u8] = include_bytes!("../assets/PixelSquare.ttf");
         let brush = wgpu_text::BrushBuilder::using_font_bytes(font)
             .unwrap()
@@ -757,6 +785,9 @@ impl State {
             camera_bind_group,
             depth_texture,
             render_pipeline,
+            // compute_staging_buffer,
+            compute_storage_buffer,
+            compute_bind_group,
             compute_pipeline,
             vertex_buffer,
             index_buffer,
@@ -840,9 +871,6 @@ impl State {
                 if self.rmb_tk.down(state == ElementState::Pressed) {
                     self.paused = !self.paused;
                 }
-                // } else if button == MouseButton::Left {
-                //     self.lmb_down = state == ElementState::Pressed;
-                // }
             }
             _ => {}
         }
@@ -880,13 +908,46 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+
+        println!("g");
+        let size = self.instance_data.len() as u64
+            * std::mem::size_of::<InstanceRaw>() as wgpu::BufferAddress;
+        println!("F");
+        let compute_staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compute Staging Buffer"),
+            size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         {
+            println!("A");
             let mut compute_pass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.dispatch_workgroups(1, 1, 1);
+            compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+            compute_pass.dispatch_workgroups(self.instance_data.len() as u32, 1, 1);
         }
+        {
+            // encoder.copy_buffer_to_buffer(
+            //     &self.compute_storage_buffer,
+            //     0,
+            //     &compute_staging_buffer,
+            //     0,
+            //     size,
+            // );
 
+            let compute_buffer_slice = compute_staging_buffer.slice(..);
+            let compute_buffer_future = compute_buffer_slice.map_async(wgpu::MapMode::Read, |_x| {
+                // let _data = compute_buffer_slice.get_mapped_range();
+
+                // let out: Vec<u32> = data
+                //     .chunks_exact(4)
+                //     .map(|b| u32::from_ne_bytes(b.try_into().unwrap()))
+                //     .collect();
+            });
+            self.device.poll(wgpu::Maintain::Wait);
+        }
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
