@@ -114,7 +114,7 @@ impl Cell {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct CellSimple {
     hp: i32,
-    neighbors: i32,   
+    neighbors: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -246,7 +246,7 @@ const INDICES: &[u16] = &[
     12, 13, 14, 12, 14, 15,
 ];
 
-const CELL_BOUNDS: u32 = 96;
+const CELL_BOUNDS: u32 = 34;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     CELL_BOUNDS as f32 * 0.5,
     CELL_BOUNDS as f32 * 0.5,
@@ -259,12 +259,10 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 
 const STATE: i32 = 10;
 const SURVIVAL: [i32; 27] = [
-    0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 const SPAWN: [i32; 27] = [
-    0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 const ALIVE_CHANCE_ON_START: f32 = 0.15;
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -306,7 +304,6 @@ const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
     (-1, -1, -1),
 ];
 
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Rules {
@@ -318,7 +315,9 @@ struct Rules {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Wrapped {
     x: i32,
-    padding: [i32; 3],
+    padding0: i32,
+    padding1: i32,
+    padding2: i32,
 }
 
 fn three_to_one(x: u32, y: u32, z: u32) -> usize {
@@ -778,8 +777,18 @@ impl State {
         let compute_bind_group_layout = compute_pipeline.get_bind_group_layout(0);
 
         let mut rules = Rules {
-            survival: [Wrapped {x: 0, padding: [0; 3]}; 27],
-            spawn: [Wrapped {x: 0, padding: [0; 3]}; 27],
+            survival: [Wrapped {
+                x: 0,
+                padding0: 0,
+                padding1: 0,
+                padding2: 0,
+            }; 27],
+            spawn: [Wrapped {
+                x: 0,
+                padding0: 0,
+                padding1: 0,
+                padding2: 0,
+            }; 27],
             state: 10,
         };
         for i in 0..27 {
@@ -805,7 +814,7 @@ impl State {
                     binding: 1,
                     resource: compute_storage_buffer.as_entire_binding(),
                 },
-            ]
+            ],
         });
 
         let font: &[u8] = include_bytes!("../assets/PixelSquare.ttf");
@@ -936,7 +945,7 @@ impl State {
             self.ticks += 1;
         }
 
-        self.calc_shader_data();
+        self.calc_instance_data();
         self.queue.write_buffer(
             &self.instance_buffer,
             0,
@@ -962,7 +971,18 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        self.calc_shader_data();
+
+        self.simple_cells.clear();
+        for cell in self.cells.iter() {
+            self.simple_cells.push(cell.create_simple());
+        }
+        self.queue.write_buffer(
+            &self.compute_storage_buffer,
+            0,
+            bytemuck::cast_slice(&self.simple_cells),
+        );
+
+
         let size = self.simple_cells.len() as u64
             * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress;
         let compute_staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -973,48 +993,49 @@ impl State {
         });
 
         {
-            let mut compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
-            compute_pass.insert_debug_marker("compute sync");
-            compute_pass.dispatch_workgroups(96, 96, 96);
+            // let mut compute_pass =
+            //     encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            // compute_pass.set_pipeline(&self.compute_pipeline);
+            // compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+            // compute_pass.insert_debug_marker("compute sync");
+            // compute_pass.dispatch_workgroups(1, 0, 0);
         }
-        {
-            encoder.copy_buffer_to_buffer(
-                &self.compute_storage_buffer,
-                0,
-                &compute_staging_buffer,
-                0,
-                size,
-            );
-
-            let compute_buffer_slice = compute_staging_buffer.slice(..);
-            let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
-            compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-            
-            self.device.poll(wgpu::Maintain::Wait);
-
-            if let Some(Ok(())) = receiver.receive().block_on() {
-                let data = compute_buffer_slice.get_mapped_range();
-                let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
         
-                drop(data);
-                compute_staging_buffer.unmap();
-                
-                println!("{}", result.len());
+        encoder.copy_buffer_to_buffer(
+            &self.compute_storage_buffer,
+            0,
+            &compute_staging_buffer,
+            0,
+            size,
+        );
 
-                for i in 0..result.len() {
-                    self.cells[i].hp = result[i].hp;
-                    // println!("{}", self.cells[i].hp);
-                }
-        
-                // Returns data from buffer
-                // Some(result)
-            } else {
-                panic!("failed to run compute on gpu!")
+        let compute_buffer_slice = compute_staging_buffer.slice(..);
+        let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+        compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+        self.device.poll(wgpu::Maintain::Wait);
+
+        if let Some(Ok(())) = receiver.receive().block_on() {
+            let data = compute_buffer_slice.get_mapped_range();
+            let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
+
+            drop(data);
+            compute_staging_buffer.unmap();
+
+            println!("{}", result.len());
+
+            for i in 0..result.len() {
+                self.cells[i].hp = result[i].hp;
+                // println!("{}", self.cells[i].hp);
             }
+
+            // Returns data from buffer
+            // Some(result)
+        } else {
+            panic!("failed to run compute on gpu!")
         }
+        
+        self.calc_instance_data();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -1099,14 +1120,12 @@ impl State {
         Ok(())
     }
 
-    fn calc_shader_data(&mut self) {
+    fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        self.simple_cells.clear();
         for cell in self.cells.iter() {
             if cell.should_draw() {
                 self.instance_data.push(cell.create_instance().to_raw());
             }
-            self.simple_cells.push(cell.create_simple());
         }
     }
     fn create_cells() -> Vec<Cell> {
