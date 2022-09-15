@@ -2,9 +2,7 @@
 
 - Compute shader
     - Run on web
-    - Randomize cells on shader
 
-- Drag speed scales with window size??
 - Fix drag for mobile!
 
 - Mouse / touch inputs

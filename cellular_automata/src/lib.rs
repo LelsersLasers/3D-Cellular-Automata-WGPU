@@ -55,12 +55,12 @@ impl Vertex {
 
 #[derive(Clone, Copy)]
 struct Cell {
-    position: cgmath::Vector3<f32>,
+    position: [f32; 3],
     hp: i32,
     neighbors: i32,
 }
 impl Cell {
-    fn new(position: cgmath::Vector3<f32>, hp: i32) -> Self {
+    fn new(position: [f32; 3], hp: i32) -> Self {
         Self {
             position,
             hp,
@@ -111,13 +111,13 @@ struct CellSimple {
 
 #[derive(Clone, Copy)]
 struct Instance {
-    position: cgmath::Vector3<f32>,
+    position: [f32; 3],
     color: [f32; 3],
 }
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: cgmath::Matrix4::from_translation(self.position).into(),
+            model: cgmath::Matrix4::from_translation(self.position.into()).into(),
             color: self.color,
         }
     }
@@ -239,11 +239,11 @@ const INDICES: &[u16] = &[
 ];
 
 const CELL_BOUNDS: u32 = 96;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
+const INSTANCE_DISPLACEMENT: [f32; 3] = [
     CELL_BOUNDS as f32 * 0.5,
     CELL_BOUNDS as f32 * 0.5,
     CELL_BOUNDS as f32 * 0.5,
-);
+];
 
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
@@ -1056,7 +1056,8 @@ impl State {
                 drop(data);
                 self.compute_staging_buffer.unmap();
 
-                for i in 0..result.len() { // TODO: possibly remove this loop
+                for i in 0..result.len() {
+                    // TODO: possibly remove this loop
                     self.cells[i].hp = result[i].hp;
                 }
             } else {
@@ -1073,6 +1074,7 @@ impl State {
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
         for cell in self.cells.iter() {
+            // TODO: possibly remove this loop
             if cell.should_draw() {
                 self.instance_data.push(cell.create_instance().to_raw());
             }
@@ -1085,11 +1087,11 @@ impl State {
             for y in 0..CELL_BOUNDS {
                 for z in 0..CELL_BOUNDS {
                     let mut cell = Cell::new(
-                        cgmath::Vector3 {
-                            x: x as f32,
-                            y: y as f32,
-                            z: z as f32,
-                        } - INSTANCE_DISPLACEMENT,
+                        [
+                            x as f32 - INSTANCE_DISPLACEMENT[0],
+                            y as f32 - INSTANCE_DISPLACEMENT[1],
+                            z as f32 - INSTANCE_DISPLACEMENT[2],
+                        ],
                         -1,
                     );
                     if x >= CELL_BOUNDS / 3
@@ -1174,16 +1176,14 @@ pub async fn run() {
                 }
             }
         }
-        Event::RedrawRequested(window_id) if window_id == window.id() => {
-            match state.render() {
-                Ok(_) => {}
-                Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                    state.resize(state.size)
-                }
-                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+        Event::RedrawRequested(window_id) if window_id == window.id() => match state.render() {
+            Ok(_) => {}
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                state.resize(state.size)
             }
-        }
+            Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+            Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+        },
         Event::RedrawEventsCleared => {
             window.request_redraw();
         }
