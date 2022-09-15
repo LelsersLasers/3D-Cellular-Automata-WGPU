@@ -992,6 +992,13 @@ impl State {
             mapped_at_creation: false,
         });
 
+        for cell in self.simple_cells.iter() {
+            if cell.hp != 0 {
+                println!("ASDSADASDAS");
+                break;
+            }
+        }
+
         {
             // let mut compute_pass =
             //     encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -1022,17 +1029,18 @@ impl State {
             drop(data);
             compute_staging_buffer.unmap();
 
-            println!("{}", result.len());
-
             for i in 0..result.len() {
                 self.cells[i].hp = result[i].hp;
-                // println!("{}", self.cells[i].hp);
             }
 
-            // Returns data from buffer
-            // Some(result)
+            for cell in self.cells.iter() {
+                if cell.hp != 0 {
+                    println!("OIIOIOIUIOIO");
+                    break;
+                }
+            }
         } else {
-            panic!("failed to run compute on gpu!")
+            panic!("GPU compute failled")
         }
         
         self.calc_instance_data();
