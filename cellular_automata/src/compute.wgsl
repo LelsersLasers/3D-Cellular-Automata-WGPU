@@ -26,13 +26,60 @@ var<uniform> rules: Rules;
 var<storage, read_write> cells: Cells;
 
 
+fn three_to_one(x: u32, y: u32, z: u32) -> u32 {
+    return z + y * u32(96) + x * u32(96) * u32(96);
+}
+
+@compute @workgroup_size(1)
+fn count_neighbors(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    // let one_idx = three_to_one(x, y, z);
+    // self.cells[one_idx].neighbors = 0;
+    // for offset in NEIGHBOR_OFFSETS.iter() {
+    //     if valid_idx(x, y, z, *offset) {
+    //         if self.cells[three_to_one(
+    //             (x as i32 + offset.0) as u32,
+    //             (y as i32 + offset.1) as u32,
+    //             (z as i32 + offset.2) as u32,
+    //         )]
+    //         .get_alive()
+    //         {
+    //             self.cells[one_idx].neighbors += 1;
+    //         }
+    //     }
+    // }
+    let idx = three_to_one(global_id.x, global_id.y, global_id.z);
+    cells.data[idx].neighbors = 0;
+    for (var x: i32 = -1; x < 2; x++) {
+        for (var y: i32 = -1; y < 2; y++) {
+            for (var z: i32 = -1; z < 2; z++) {
+                if i32(global_id.x) + x >= 0
+                    && i32(global_id.x) + x < 96
+                    && i32(global_id.y) + y >= 0
+                    && i32(global_id.y) + y < 96
+                    && i32(global_id.z) + z >= 0
+                    && i32(global_id.z) + z < 96
+                    && cells.data[three_to_one(
+                        u32(i32(global_id.x) + x),
+                        u32(i32(global_id.y) + y),
+                        u32(i32(global_id.z) + z)
+                    )].hp == rules.state {
+                    cells.data[idx].neighbors += 1;
+                } else if x == 0 && y == 0 && z == 0 {
+                    continue;
+                }
+            }
+        }
+    }
+}
+
+
 @compute @workgroup_size(1)
 fn sync(@builtin(global_invocation_id) global_id: vec3<u32>) {
 	// self.hp = (self.hp == STATE as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
     //     (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (STATE + 1) as i32 - 1) +  // dead
     //     (self.hp >= 0 && self.hp < STATE as i32) as i32 * (self.hp - 1); // dying
 
-    let idx = global_id.z + global_id.y * u32(96) + global_id.x * u32(96) * u32(96);
+    let idx = three_to_one(global_id.x, global_id.y, global_id.z);
     cells.data[idx].hp =
         i32(cells.data[idx].hp == rules.state) * (cells.data[idx].hp - 1 + rules.survival[cells.data[idx].neighbors].x) + // alive
         i32(cells.data[idx].hp < 0) * (rules.spawn[cells.data[idx].neighbors].x * (rules.state + 1) - 1) +  // dead

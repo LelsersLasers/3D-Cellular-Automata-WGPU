@@ -754,7 +754,8 @@ impl State {
         });
         let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Staging Buffer"),
-            size: simple_cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            size: simple_cells.len() as u64
+                * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -993,7 +994,8 @@ impl State {
             0,
             &self.compute_staging_buffer,
             0,
-            self.simple_cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            self.simple_cells.len() as u64
+                * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
         );
 
         {
