@@ -27,7 +27,7 @@ var<storage, read_write> cells: Cells;
 
 
 @compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn sync(@builtin(global_invocation_id) global_id: vec3<u32>) {
 	// self.hp = (self.hp == STATE as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
     //     (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (STATE + 1) as i32 - 1) +  // dead
     //     (self.hp >= 0 && self.hp < STATE as i32) as i32 * (self.hp - 1); // dying

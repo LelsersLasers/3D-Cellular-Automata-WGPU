@@ -772,7 +772,7 @@ impl State {
             label: Some("Compute Pipeline"),
             layout: None,
             module: &compute_shader,
-            entry_point: "main",
+            entry_point: "sync",
         });
         let compute_bind_group_layout = compute_pipeline.get_bind_group_layout(0);
 
