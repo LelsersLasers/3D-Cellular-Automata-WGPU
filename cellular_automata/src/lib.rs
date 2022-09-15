@@ -483,7 +483,6 @@ struct State {
     cn_compute_pipeline: wgpu::ComputePipeline,
 
     // simple_cells: Vec<CellSimple>,
-
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
@@ -711,8 +710,7 @@ impl State {
         });
         let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Staging Buffer"),
-            size: cells.len() as u64
-                * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            size: cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -723,18 +721,20 @@ impl State {
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
         });
-        let sync_compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Compute Pipeline"),
-            layout: None,
-            module: &compute_shader,
-            entry_point: "sync",
-        });
-        let cn_compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Compute Pipeline"),
-            layout: None,
-            module: &compute_shader,
-            entry_point: "count_neighbors",
-        });
+        let sync_compute_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Compute Pipeline"),
+                layout: None,
+                module: &compute_shader,
+                entry_point: "sync",
+            });
+        let cn_compute_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Compute Pipeline"),
+                layout: None,
+                module: &compute_shader,
+                entry_point: "count_neighbors",
+            });
         let sync_compute_bind_group_layout = sync_compute_pipeline.get_bind_group_layout(0);
 
         let mut rules = Rules {
@@ -901,12 +901,6 @@ impl State {
         self.camera_staging.camera.process_events(event)
     }
     fn update(&mut self) {
-        if !self.paused {
-            // self.count_neighbors();
-            // self.sync_cells();
-            self.ticks += 1;
-        }
-
         self.calc_instance_data();
         self.queue.write_buffer(
             &self.instance_buffer,
@@ -933,31 +927,32 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        {
-            let mut cn_compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            cn_compute_pass.set_pipeline(&self.cn_compute_pipeline);
-            cn_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
-            cn_compute_pass.insert_debug_marker("compute count neighbors");
-            cn_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
+        if !self.paused {
+            self.ticks += 1;
+            {
+                let mut cn_compute_pass =
+                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+                cn_compute_pass.set_pipeline(&self.cn_compute_pipeline);
+                cn_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+                cn_compute_pass.insert_debug_marker("compute count neighbors");
+                cn_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
+            }
+            {
+                let mut sync_compute_pass =
+                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+                sync_compute_pass.set_pipeline(&self.sync_compute_pipeline);
+                sync_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+                sync_compute_pass.insert_debug_marker("compute sync");
+                sync_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
+            }
+            encoder.copy_buffer_to_buffer(
+                &self.compute_storage_buffer,
+                0,
+                &self.compute_staging_buffer,
+                0,
+                self.cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            );
         }
-        {
-            let mut sync_compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            sync_compute_pass.set_pipeline(&self.sync_compute_pipeline);
-            sync_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
-            sync_compute_pass.insert_debug_marker("compute sync");
-            sync_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
-        }
-
-        encoder.copy_buffer_to_buffer(
-            &self.compute_storage_buffer,
-            0,
-            &self.compute_staging_buffer,
-            0,
-            self.cells.len() as u64
-                * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
-        );
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1037,24 +1032,26 @@ impl State {
         self.queue.submit([encoder.finish(), text_buffer]);
         output.present();
 
-        let compute_buffer_slice = self.compute_staging_buffer.slice(..);
-        let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
-        compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+        if !self.paused {
+            let compute_buffer_slice = self.compute_staging_buffer.slice(..);
+            let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+            compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
-        self.device.poll(wgpu::Maintain::Wait);
+            self.device.poll(wgpu::Maintain::Wait);
 
-        if let Some(Ok(())) = receiver.receive().block_on() {
-            let data = compute_buffer_slice.get_mapped_range();
-            let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
+            if let Some(Ok(())) = receiver.receive().block_on() {
+                let data = compute_buffer_slice.get_mapped_range();
+                let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
 
-            drop(data);
-            self.compute_staging_buffer.unmap();
+                drop(data);
+                self.compute_staging_buffer.unmap();
 
-            for i in 0..result.len() {
-                self.cells[i].hp = result[i].hp;
+                for i in 0..result.len() {
+                    self.cells[i].hp = result[i].hp;
+                }
+            } else {
+                panic!("GPU compute failled")
             }
-        } else {
-            panic!("GPU compute failled")
         }
 
         self.delta = (instant::now() - self.last_frame) / 1000.;

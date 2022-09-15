@@ -1,5 +1,10 @@
 # TODO
 
+- Compute shader
+    - Run on web
+    - Randomize cells updates the cells in the shader
+    - Randomize cells on shader
+
 - Drag speed scales with window size??
 - Fix drag for mobile!
 
@@ -17,8 +22,8 @@
 - Improved left bar
     - Toggle: [p]
 - Cross section [c]
-- Compute shader
 - Change simulation rules
     - Read starting rules from json
+    - Keybinds to change rules
 - Itch.io page
     - Photos, gif, etc
