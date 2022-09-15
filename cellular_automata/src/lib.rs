@@ -968,10 +968,10 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        self.simple_cells.clear();
-        for cell in self.cells.iter() {
-            self.simple_cells.push(cell.create_simple());
-        }
+        // self.simple_cells.clear();
+        // for cell in self.cells.iter() {
+        //     self.simple_cells.push(cell.create_simple());
+        // }
 
         self.queue.write_buffer(
             &self.compute_storage_buffer,
@@ -996,7 +996,6 @@ impl State {
             self.simple_cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
         );
 
-        self.calc_instance_data();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -1103,10 +1102,12 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
+        self.simple_cells.clear();
         for cell in self.cells.iter() {
             if cell.should_draw() {
                 self.instance_data.push(cell.create_instance().to_raw());
             }
+            self.simple_cells.push(cell.create_simple());
         }
     }
     fn create_cells() -> Vec<Cell> {
