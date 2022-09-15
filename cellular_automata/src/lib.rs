@@ -97,9 +97,6 @@ impl Cell {
             neighbors: self.neighbors,
         }
     }
-    fn get_alive(&self) -> bool {
-        self.hp == STATE
-    }
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
@@ -270,34 +267,6 @@ const ALIVE_COLOR: [f32; 3] = [0.529523, 0.119264, 0.144972];
 const DEAD_COLOR: [u8; 3] = [76, 86, 106];
 const DYING_COLOR: [u8; 3] = [216, 222, 233];
 const TEXT_COLOR: [f32; 4] = [0.84337, 0.867136, 0.907547, 1.];
-const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
-    (1, 0, 0),
-    (-1, 0, 0),
-    (0, 1, 0),
-    (0, -1, 0),
-    (0, 0, 1),
-    (0, 0, -1),
-    (1, 1, 0),
-    (-1, 1, 0),
-    (1, -1, 0),
-    (-1, -1, 0),
-    (1, 0, 1),
-    (-1, 0, 1),
-    (1, 0, -1),
-    (-1, 0, -1),
-    (0, 1, 1),
-    (0, -1, 1),
-    (0, 1, -1),
-    (0, -1, -1),
-    (1, 1, 1),
-    (-1, 1, 1),
-    (1, -1, 1),
-    (-1, -1, 1),
-    (1, 1, -1),
-    (-1, 1, -1),
-    (1, -1, -1),
-    (-1, -1, -1),
-];
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -313,20 +282,6 @@ struct Wrapped {
     padding0: i32,
     padding1: i32,
     padding2: i32,
-}
-
-fn three_to_one(x: u32, y: u32, z: u32) -> usize {
-    z as usize
-        + y as usize * CELL_BOUNDS as usize
-        + x as usize * CELL_BOUNDS as usize * CELL_BOUNDS as usize
-}
-fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32)) -> bool {
-    x as i32 + offset.0 >= 0
-        && x as i32 + offset.0 < CELL_BOUNDS as i32
-        && y as i32 + offset.1 >= 0
-        && y as i32 + offset.1 < CELL_BOUNDS as i32
-        && z as i32 + offset.2 >= 0
-        && z as i32 + offset.2 < CELL_BOUNDS as i32
 }
 fn rgb_to_srgb(rgb: f32) -> f32 {
     (rgb as f32 / 255.).powf(2.2)
@@ -978,11 +933,6 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        // self.simple_cells.clear();
-        // for cell in self.cells.iter() {
-        //     self.simple_cells.push(cell.create_simple());
-        // }
-
         self.queue.write_buffer(
             &self.compute_storage_buffer,
             0,
@@ -1158,29 +1108,6 @@ impl State {
             }
         }
         return cells;
-    }
-    fn count_neighbors(&mut self) {
-        for x in 0..CELL_BOUNDS {
-            for y in 0..CELL_BOUNDS {
-                for z in 0..CELL_BOUNDS {
-                    let one_idx = three_to_one(x, y, z);
-                    self.cells[one_idx].neighbors = 0;
-                    for offset in NEIGHBOR_OFFSETS.iter() {
-                        if valid_idx(x, y, z, *offset) {
-                            if self.cells[three_to_one(
-                                (x as i32 + offset.0) as u32,
-                                (y as i32 + offset.1) as u32,
-                                (z as i32 + offset.2) as u32,
-                            )]
-                            .get_alive()
-                            {
-                                self.cells[one_idx].neighbors += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 
