@@ -103,11 +103,6 @@ impl Cell {
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-    fn sync(&mut self) {
-        self.hp = (self.hp == STATE) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize]) + // alive
-            (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] * (STATE + 1) - 1) +  // dead
-            (self.hp >= 0 && self.hp < STATE) as i32 * (self.hp - 1); // dying
-    }
 }
 
 #[repr(C)]
@@ -526,6 +521,7 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
 
     compute_storage_buffer: wgpu::Buffer,
+    compute_staging_buffer: wgpu::Buffer,
     compute_bind_group: wgpu::BindGroup,
     compute_pipeline: wgpu::ComputePipeline,
 
@@ -756,11 +752,12 @@ impl State {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
         });
-        // let compute_staging_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Compute Staging Buffer"),
-        //     contents: bytemuck::cast_slice(&instance_data),
-        //     usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-        // });
+        let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compute Staging Buffer"),
+            size: simple_cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let compute_storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Compute Storage Buffer"),
             contents: bytemuck::cast_slice(&simple_cells),
@@ -846,7 +843,7 @@ impl State {
             camera_bind_group,
             depth_texture,
             render_pipeline,
-            // compute_staging_buffer,
+            compute_staging_buffer,
             compute_storage_buffer,
             compute_bind_group,
             compute_pipeline,
@@ -971,21 +968,10 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-
         self.simple_cells.clear();
         for cell in self.cells.iter() {
             self.simple_cells.push(cell.create_simple());
         }
-
-
-        let size = self.simple_cells.len() as u64
-            * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress;
-        let compute_staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Compute Staging Buffer"),
-            size,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
 
         self.queue.write_buffer(
             &self.compute_storage_buffer,
@@ -1001,15 +987,15 @@ impl State {
             compute_pass.insert_debug_marker("compute sync");
             compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
         }
-        
+
         encoder.copy_buffer_to_buffer(
             &self.compute_storage_buffer,
             0,
-            &compute_staging_buffer,
+            &self.compute_staging_buffer,
             0,
-            size,
+            self.simple_cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
         );
-        
+
         self.calc_instance_data();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1089,7 +1075,7 @@ impl State {
         self.queue.submit([encoder.finish(), text_buffer]);
         output.present();
 
-        let compute_buffer_slice = compute_staging_buffer.slice(..);
+        let compute_buffer_slice = self.compute_staging_buffer.slice(..);
         let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
         compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
@@ -1100,7 +1086,7 @@ impl State {
             let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
 
             drop(data);
-            compute_staging_buffer.unmap();
+            self.compute_staging_buffer.unmap();
 
             for i in 0..result.len() {
                 self.cells[i].hp = result[i].hp;
@@ -1174,11 +1160,6 @@ impl State {
                     }
                 }
             }
-        }
-    }
-    fn sync_cells(&mut self) {
-        for cell in self.cells.iter_mut() {
-            cell.sync();
         }
     }
 }
