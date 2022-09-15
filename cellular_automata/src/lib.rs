@@ -482,7 +482,7 @@ struct State {
     sync_compute_pipeline: wgpu::ComputePipeline,
     cn_compute_pipeline: wgpu::ComputePipeline,
 
-    simple_cells: Vec<CellSimple>,
+    // simple_cells: Vec<CellSimple>,
 
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -711,7 +711,7 @@ impl State {
         });
         let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Staging Buffer"),
-            size: simple_cells.len() as u64
+            size: cells.len() as u64
                 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -812,7 +812,7 @@ impl State {
             compute_bind_group,
             sync_compute_pipeline,
             cn_compute_pipeline,
-            simple_cells,
+            // simple_cells,
             vertex_buffer,
             index_buffer,
             num_indices,
@@ -933,12 +933,6 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        self.queue.write_buffer(
-            &self.compute_storage_buffer,
-            0,
-            bytemuck::cast_slice(&self.simple_cells),
-        );
-
         {
             let mut cn_compute_pass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -961,7 +955,7 @@ impl State {
             0,
             &self.compute_staging_buffer,
             0,
-            self.simple_cells.len() as u64
+            self.cells.len() as u64
                 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
         );
 
@@ -1071,12 +1065,10 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        self.simple_cells.clear();
         for cell in self.cells.iter() {
             if cell.should_draw() {
                 self.instance_data.push(cell.create_instance().to_raw());
             }
-            self.simple_cells.push(cell.create_simple());
         }
     }
     fn create_cells() -> Vec<Cell> {
