@@ -246,7 +246,7 @@ const INDICES: &[u16] = &[
     12, 13, 14, 12, 14, 15,
 ];
 
-const CELL_BOUNDS: u32 = 34;
+const CELL_BOUNDS: u32 = 96;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     CELL_BOUNDS as f32 * 0.5,
     CELL_BOUNDS as f32 * 0.5,
@@ -993,20 +993,13 @@ impl State {
             bytemuck::cast_slice(&self.simple_cells),
         );
 
-        for cell in self.simple_cells.iter() {
-            if cell.hp != 0 {
-                println!("ASDSADASDAS");
-                break;
-            }
-        }
-
         {
-            // let mut compute_pass =
-            //     encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            // compute_pass.set_pipeline(&self.compute_pipeline);
-            // compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
-            // compute_pass.insert_debug_marker("compute sync");
-            // compute_pass.dispatch_workgroups(1, 0, 0);
+            let mut compute_pass =
+                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            compute_pass.set_pipeline(&self.compute_pipeline);
+            compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+            compute_pass.insert_debug_marker("compute sync");
+            compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
         }
         
         encoder.copy_buffer_to_buffer(
@@ -1111,13 +1104,6 @@ impl State {
 
             for i in 0..result.len() {
                 self.cells[i].hp = result[i].hp;
-            }
-
-            for cell in self.cells.iter() {
-                if cell.hp != 0 {
-                    println!("OIIOIOIUIOIO");
-                    break;
-                }
             }
         } else {
             panic!("GPU compute failled")
