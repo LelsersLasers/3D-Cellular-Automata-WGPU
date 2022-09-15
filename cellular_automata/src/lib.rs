@@ -523,7 +523,9 @@ struct State {
     compute_storage_buffer: wgpu::Buffer,
     compute_staging_buffer: wgpu::Buffer,
     compute_bind_group: wgpu::BindGroup,
-    compute_pipeline: wgpu::ComputePipeline,
+
+    sync_compute_pipeline: wgpu::ComputePipeline,
+    cn_compute_pipeline: wgpu::ComputePipeline,
 
     simple_cells: Vec<CellSimple>,
 
@@ -766,13 +768,19 @@ impl State {
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
         });
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        let sync_compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Compute Pipeline"),
             layout: None,
             module: &compute_shader,
             entry_point: "sync",
         });
-        let compute_bind_group_layout = compute_pipeline.get_bind_group_layout(0);
+        let cn_compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute Pipeline"),
+            layout: None,
+            module: &compute_shader,
+            entry_point: "count_neighbors",
+        });
+        let sync_compute_bind_group_layout = sync_compute_pipeline.get_bind_group_layout(0);
 
         let mut rules = Rules {
             survival: [Wrapped {
@@ -802,7 +810,7 @@ impl State {
 
         let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Compute Bind Group"),
-            layout: &compute_bind_group_layout,
+            layout: &sync_compute_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -847,7 +855,8 @@ impl State {
             compute_staging_buffer,
             compute_storage_buffer,
             compute_bind_group,
-            compute_pipeline,
+            sync_compute_pipeline,
+            cn_compute_pipeline,
             simple_cells,
             vertex_buffer,
             index_buffer,
@@ -938,7 +947,7 @@ impl State {
     }
     fn update(&mut self) {
         if !self.paused {
-            self.count_neighbors();
+            // self.count_neighbors();
             // self.sync_cells();
             self.ticks += 1;
         }
@@ -981,12 +990,20 @@ impl State {
         );
 
         {
-            let mut compute_pass =
+            let mut cn_compute_pass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
-            compute_pass.insert_debug_marker("compute sync");
-            compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
+            cn_compute_pass.set_pipeline(&self.cn_compute_pipeline);
+            cn_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+            cn_compute_pass.insert_debug_marker("compute count neighbors");
+            cn_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
+        }
+        {
+            let mut sync_compute_pass =
+                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            sync_compute_pass.set_pipeline(&self.sync_compute_pipeline);
+            sync_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+            sync_compute_pass.insert_debug_marker("compute sync");
+            sync_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
         }
 
         encoder.copy_buffer_to_buffer(
