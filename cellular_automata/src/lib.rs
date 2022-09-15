@@ -274,6 +274,7 @@ struct Rules {
     survival: [Wrapped; 27],
     spawn: [Wrapped; 27],
     state: i32,
+    cell_bounds: u32,
 }
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -482,7 +483,6 @@ struct State {
     sync_compute_pipeline: wgpu::ComputePipeline,
     cn_compute_pipeline: wgpu::ComputePipeline,
 
-    // simple_cells: Vec<CellSimple>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
@@ -691,13 +691,13 @@ impl State {
         });
         let num_indices = INDICES.len() as u32;
 
-        let mut instance_data: Vec<InstanceRaw> = Vec::new();
-        let mut simple_cells: Vec<CellSimple> = Vec::new();
         let cells: Vec<Cell> = Self::create_cells();
-        for cell in cells.iter() {
-            instance_data.push(cell.create_instance().to_raw());
-            simple_cells.push(cell.create_simple());
-        }
+        let instance_data: Vec<InstanceRaw> = cells
+            .iter()
+            .map(|cell| cell.create_instance().to_raw())
+            .collect();
+        let simple_cells: Vec<CellSimple> = cells.iter().map(|cell| cell.create_simple()).collect();
+
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -750,7 +750,8 @@ impl State {
                 padding1: 0,
                 padding2: 0,
             }; 27],
-            state: 10,
+            state: STATE,
+            cell_bounds: CELL_BOUNDS,
         };
         for i in 0..27 {
             rules.survival[i].x = SURVIVAL[i];
@@ -812,7 +813,6 @@ impl State {
             compute_bind_group,
             sync_compute_pipeline,
             cn_compute_pipeline,
-            // simple_cells,
             vertex_buffer,
             index_buffer,
             num_indices,
@@ -869,6 +869,17 @@ impl State {
                         if pressed {
                             self.cells = Self::create_cells();
                             self.ticks = 0;
+                            self.queue.write_buffer(
+                                &self.compute_storage_buffer,
+                                0,
+                                bytemuck::cast_slice(
+                                    &self
+                                        .cells
+                                        .iter()
+                                        .map(|cell| cell.create_simple())
+                                        .collect::<Vec<CellSimple>>(),
+                                ),
+                            );
                         }
                     }
                     VirtualKeyCode::Space => {
@@ -900,7 +911,7 @@ impl State {
         }
         self.camera_staging.camera.process_events(event)
     }
-    fn update(&mut self) {
+    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.calc_instance_data();
         self.queue.write_buffer(
             &self.instance_buffer,
@@ -915,8 +926,7 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
-    }
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -1046,7 +1056,7 @@ impl State {
                 drop(data);
                 self.compute_staging_buffer.unmap();
 
-                for i in 0..result.len() {
+                for i in 0..result.len() { // TODO: possibly remove this loop
                     self.cells[i].hp = result[i].hp;
                 }
             } else {
@@ -1165,7 +1175,6 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            state.update();
             match state.render() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {

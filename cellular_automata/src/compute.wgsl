@@ -17,6 +17,7 @@ struct Rules {
     survival: array<Wrapped, 27>,
     spawn: array<Wrapped, 27>,
     state: i32,
+    cell_bounds: u32,
 };
 
 
@@ -27,7 +28,7 @@ var<storage, read_write> cells: Cells;
 
 
 fn three_to_one(x: u32, y: u32, z: u32) -> u32 {
-    return z + y * u32(96) + x * u32(96) * u32(96);
+    return z + y * rules.cell_bounds + x * rules.cell_bounds * rules.cell_bounds;
 }
 
 @compute @workgroup_size(1)
@@ -53,11 +54,11 @@ fn count_neighbors(@builtin(global_invocation_id) global_id: vec3<u32>) {
         for (var y: i32 = -1; y < 2; y++) {
             for (var z: i32 = -1; z < 2; z++) {
                 if i32(global_id.x) + x >= 0
-                    && i32(global_id.x) + x < 96
+                    && i32(global_id.x) + x < i32(rules.cell_bounds)
                     && i32(global_id.y) + y >= 0
-                    && i32(global_id.y) + y < 96
+                    && i32(global_id.y) + y < i32(rules.cell_bounds)
                     && i32(global_id.z) + z >= 0
-                    && i32(global_id.z) + z < 96
+                    && i32(global_id.z) + z < i32(rules.cell_bounds)
                     && cells.data[three_to_one(
                         u32(i32(global_id.x) + x),
                         u32(i32(global_id.y) + y),

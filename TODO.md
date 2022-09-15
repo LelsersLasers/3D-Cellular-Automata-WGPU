@@ -2,7 +2,6 @@
 
 - Compute shader
     - Run on web
-    - Randomize cells updates the cells in the shader
     - Randomize cells on shader
 
 - Drag speed scales with window size??
