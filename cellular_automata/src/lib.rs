@@ -976,11 +976,6 @@ impl State {
         for cell in self.cells.iter() {
             self.simple_cells.push(cell.create_simple());
         }
-        self.queue.write_buffer(
-            &self.compute_storage_buffer,
-            0,
-            bytemuck::cast_slice(&self.simple_cells),
-        );
 
 
         let size = self.simple_cells.len() as u64
@@ -991,6 +986,12 @@ impl State {
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+
+        self.queue.write_buffer(
+            &self.compute_storage_buffer,
+            0,
+            bytemuck::cast_slice(&self.simple_cells),
+        );
 
         for cell in self.simple_cells.iter() {
             if cell.hp != 0 {
@@ -1015,33 +1016,6 @@ impl State {
             0,
             size,
         );
-
-        let compute_buffer_slice = compute_staging_buffer.slice(..);
-        let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
-        compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-
-        self.device.poll(wgpu::Maintain::Wait);
-
-        if let Some(Ok(())) = receiver.receive().block_on() {
-            let data = compute_buffer_slice.get_mapped_range();
-            let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
-
-            drop(data);
-            compute_staging_buffer.unmap();
-
-            for i in 0..result.len() {
-                self.cells[i].hp = result[i].hp;
-            }
-
-            for cell in self.cells.iter() {
-                if cell.hp != 0 {
-                    println!("OIIOIOIUIOIO");
-                    break;
-                }
-            }
-        } else {
-            panic!("GPU compute failled")
-        }
         
         self.calc_instance_data();
         {
@@ -1121,6 +1095,33 @@ impl State {
 
         self.queue.submit([encoder.finish(), text_buffer]);
         output.present();
+
+        let compute_buffer_slice = compute_staging_buffer.slice(..);
+        let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+        compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+        self.device.poll(wgpu::Maintain::Wait);
+
+        if let Some(Ok(())) = receiver.receive().block_on() {
+            let data = compute_buffer_slice.get_mapped_range();
+            let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
+
+            drop(data);
+            compute_staging_buffer.unmap();
+
+            for i in 0..result.len() {
+                self.cells[i].hp = result[i].hp;
+            }
+
+            for cell in self.cells.iter() {
+                if cell.hp != 0 {
+                    println!("OIIOIOIUIOIO");
+                    break;
+                }
+            }
+        } else {
+            panic!("GPU compute failled")
+        }
 
         self.delta = (instant::now() - self.last_frame) / 1000.;
         self.last_frame = instant::now();
