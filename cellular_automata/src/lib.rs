@@ -173,57 +173,29 @@ const VERTICES: &[Vertex] = &[
         position: [0.5, 0.5, 0.],
     },
     Vertex {
-        // E - top right - left face
+        // E - top right - back
         position: [0.5, 0.5, -1.],
     },
     Vertex {
-        // F - bottom right - left face
+        // F - bottom right - back
         position: [0.5, -0.5, -1.],
     },
     Vertex {
-        // G - top left - right face
+        // G - top left - back
         position: [-0.5, 0.5, -1.],
     },
     Vertex {
-        // H - bottom left - right face
-        position: [-0.5, -0.5, -1.],
-    },
-    Vertex {
-        // G - top left - top face
-        position: [-0.5, 0.5, -1.],
-    },
-    Vertex {
-        // A - bottom left - top face
-        position: [-0.5, 0.5, 0.],
-    },
-    Vertex {
-        // D - bottom right - top face
-        position: [0.5, 0.5, 0.],
-    },
-    Vertex {
-        // E - top right - top face
-        position: [0.5, 0.5, -1.],
-    },
-    Vertex {
-        // F - top left - bottom face
-        position: [0.5, -0.5, -1.],
-    },
-    Vertex {
-        // C - bottom left - bottom face
-        position: [0.5, -0.5, 0.],
-    },
-    Vertex {
-        // B - bottom right - bottom face
-        position: [-0.5, -0.5, 0.],
-    },
-    Vertex {
-        // H - top right - bottom face
+        // H - bottom left - back
         position: [-0.5, -0.5, -1.],
     },
 ];
 const INDICES: &[u16] = &[
-    0, 1, 2, 0, 2, 3, 3, 2, 5, 3, 5, 4, 6, 7, 1, 6, 1, 0, 4, 5, 7, 4, 7, 6, 8, 9, 10, 8, 10, 11,
-    12, 13, 14, 12, 14, 15,
+    0, 1, 2, 0, 2, 3, // front face
+    3, 2, 5, 3, 5, 4, // right face
+    4, 5, 7, 4, 7, 6, // back face
+    6, 7, 1, 6, 1, 0, // left face
+    6, 0, 3, 6, 3, 4, // top face
+    2, 1, 7, 5, 2, 7, // bottom face
 ];
 
 const CELL_BOUNDS: u32 = 96;
@@ -562,7 +534,7 @@ impl State {
             aspect: size.width as f32 / size.height as f32,
             fovy: 45.,
             znear: 0.01,
-            zfar: 300.,
+            zfar: CELL_BOUNDS as f32 * 5.,
             lat: 0.35,
             lon: 0.35,
             radius: CELL_BOUNDS as f64 * 2.5,
