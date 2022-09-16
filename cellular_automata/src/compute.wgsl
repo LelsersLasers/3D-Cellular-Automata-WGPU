@@ -1,4 +1,5 @@
 struct Cell {
+    position: array<f32, 3>,
 	hp: i32,
 	neighbors: i32,
 };

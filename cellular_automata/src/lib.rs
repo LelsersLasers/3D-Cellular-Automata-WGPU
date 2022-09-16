@@ -53,7 +53,8 @@ impl Vertex {
     }
 }
 
-#[derive(Clone, Copy)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Cell {
     position: [f32; 3],
     hp: i32,
@@ -91,22 +92,9 @@ impl Cell {
             color: self.get_color(),
         }
     }
-    fn create_simple(&self) -> CellSimple {
-        CellSimple {
-            hp: self.hp,
-            neighbors: self.neighbors,
-        }
-    }
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct CellSimple {
-    hp: i32,
-    neighbors: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -696,7 +684,6 @@ impl State {
             .iter()
             .map(|cell| cell.create_instance().to_raw())
             .collect();
-        let simple_cells: Vec<CellSimple> = cells.iter().map(|cell| cell.create_simple()).collect();
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -710,13 +697,13 @@ impl State {
         });
         let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Staging Buffer"),
-            size: cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+            size: cells.len() as u64 * std::mem::size_of::<Cell>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let compute_storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Compute Storage Buffer"),
-            contents: bytemuck::cast_slice(&simple_cells),
+            contents: bytemuck::cast_slice(&cells),
             usage: wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
@@ -872,13 +859,7 @@ impl State {
                             self.queue.write_buffer(
                                 &self.compute_storage_buffer,
                                 0,
-                                bytemuck::cast_slice(
-                                    &self
-                                        .cells
-                                        .iter()
-                                        .map(|cell| cell.create_simple())
-                                        .collect::<Vec<CellSimple>>(),
-                                ),
+                                bytemuck::cast_slice(&self.cells),
                             );
                         }
                     }
@@ -960,7 +941,7 @@ impl State {
                 0,
                 &self.compute_staging_buffer,
                 0,
-                self.cells.len() as u64 * std::mem::size_of::<CellSimple>() as wgpu::BufferAddress,
+                self.cells.len() as u64 * std::mem::size_of::<Cell>() as wgpu::BufferAddress,
             );
         }
 
@@ -1051,15 +1032,10 @@ impl State {
 
             if let Some(Ok(())) = receiver.receive().block_on() {
                 let data = compute_buffer_slice.get_mapped_range();
-                let result: Vec<CellSimple> = bytemuck::cast_slice(&data).to_vec();
+                self.cells = bytemuck::cast_slice(&data).to_vec();
 
                 drop(data);
                 self.compute_staging_buffer.unmap();
-
-                for i in 0..result.len() {
-                    // TODO: possibly remove this loop
-                    self.cells[i].hp = result[i].hp;
-                }
             } else {
                 panic!("GPU compute failled")
             }
