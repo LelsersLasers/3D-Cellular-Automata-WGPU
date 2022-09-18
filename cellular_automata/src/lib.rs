@@ -38,17 +38,25 @@ impl ToggleKey {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
+    light: f32,
 }
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x3,
-            }],
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32,
+                }
+            ],
         }
     }
 }
@@ -166,30 +174,37 @@ const VERTICES: &[Vertex] = &[
     Vertex {
         // A - top left
         position: [-0.5, 0.5, 0.],
+        light: 0.5,
     },
     Vertex {
         // B - bottom left
         position: [-0.5, -0.5, 0.],
+        light: 1.,
     },
     Vertex {
         // C - bottom right
         position: [0.5, -0.5, 0.],
+        light: 1.,
     },
     Vertex {
         // D - top right
         position: [0.5, 0.5, 0.],
+        light: 1.,
     },
     Vertex {
         // E - top right - left face
         position: [0.5, 0.5, -1.],
+        light: 1.,
     },
     Vertex {
         // F - bottom right - left face
         position: [0.5, -0.5, -1.],
+        light: 0.5,
     },
     Vertex {
         // G - top left - right face
         position: [-0.5, 0.5, -1.],
+        light: 1.,
     },
     Vertex {
         // H - bottom left - right face
@@ -226,6 +241,7 @@ const VERTICES: &[Vertex] = &[
     Vertex {
         // H - top right - bottom face
         position: [-0.5, -0.5, -1.],
+        light: 1.,
     },
 ];
 const INDICES: &[u16] = &[
