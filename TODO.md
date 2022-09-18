@@ -2,6 +2,9 @@
 
 - Compute shader
     - Run on web
+    - Ambient occlusion
+    - Calc instances?
+    - Trim edges (don't draw faces that are next to drawn cells)
 
 - Fix drag for mobile!
 
