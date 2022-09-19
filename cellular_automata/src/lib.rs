@@ -38,7 +38,7 @@ impl ToggleKey {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    light: f32,
+    idx: u32,
 }
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -54,7 +54,7 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float32,
+                    format: wgpu::VertexFormat::Uint32,
                 }
             ],
         }
@@ -98,6 +98,7 @@ impl Cell {
         Instance {
             position: self.position,
             color: self.get_color(),
+            lights: [1.; 8],
         }
     }
     fn should_draw(&self) -> bool {
@@ -109,12 +110,21 @@ impl Cell {
 struct Instance {
     position: [f32; 3],
     color: [f32; 3],
+    lights: [f32; 8],
 }
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
             model: cgmath::Matrix4::from_translation(self.position.into()).into(),
             color: self.color,
+            light_top_left: self.lights[0],
+            light_bottom_left: self.lights[1],
+            light_bottom_right: self.lights[2],
+            light_top_right: self.lights[3],
+            light_top_right_back: self.lights[4],
+            light_bottom_right_back: self.lights[5],
+            light_top_left_back: self.lights[6],
+            light_bottom_left_back: self.lights[7],
         }
     }
 }
@@ -124,6 +134,14 @@ impl Instance {
 struct InstanceRaw {
     model: [[f32; 4]; 4],
     color: [f32; 3],
+    light_top_left: f32,
+    light_bottom_left: f32,
+    light_bottom_right: f32,
+    light_top_right: f32,
+    light_top_right_back: f32,
+    light_bottom_right_back: f32,
+    light_top_left_back: f32,
+    light_bottom_left_back: f32,
 }
 impl InstanceRaw {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -158,6 +176,54 @@ impl InstanceRaw {
                     shader_location: 9,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                wgpu::VertexAttribute {
+                    // light_top_left
+                    offset: std::mem::size_of::<[f32; 19]>() as wgpu::BufferAddress,
+                    shader_location: 10,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_bottom_left
+                    offset: std::mem::size_of::<[f32; 20]>() as wgpu::BufferAddress,
+                    shader_location: 11,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_bottom_right
+                    offset: std::mem::size_of::<[f32; 21]>() as wgpu::BufferAddress,
+                    shader_location: 12,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_top_right
+                    offset: std::mem::size_of::<[f32; 22]>() as wgpu::BufferAddress,
+                    shader_location: 13,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_top_right_back
+                    offset: std::mem::size_of::<[f32; 23]>() as wgpu::BufferAddress,
+                    shader_location: 14,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_bottom_right_back
+                    offset: std::mem::size_of::<[f32; 24]>() as wgpu::BufferAddress,
+                    shader_location: 15,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_top_left_back
+                    offset: std::mem::size_of::<[f32; 25]>() as wgpu::BufferAddress,
+                    shader_location: 16,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    // light_bottom_left_back
+                    offset: std::mem::size_of::<[f32; 26]>() as wgpu::BufferAddress,
+                    shader_location: 17,
+                    format: wgpu::VertexFormat::Float32,
+                },
             ],
         }
     }
@@ -167,42 +233,42 @@ const VERTICES: &[Vertex] = &[
     Vertex {
         // A - top left
         position: [-0.5, 0.5, 0.],
-        light: 0.5,
+        idx: 0,
     },
     Vertex {
         // B - bottom left
         position: [-0.5, -0.5, 0.],
-        light: 1.,
+        idx: 1,
     },
     Vertex {
         // C - bottom right
         position: [0.5, -0.5, 0.],
-        light: 1.,
+        idx: 2,
     },
     Vertex {
         // D - top right
         position: [0.5, 0.5, 0.],
-        light: 1.,
+        idx: 3,
     },
     Vertex {
         // E - top right - back
         position: [0.5, 0.5, -1.],
-        light: 1.,
+        idx: 4,
     },
     Vertex {
         // F - bottom right - back
         position: [0.5, -0.5, -1.],
-        light: 0.5,
+        idx: 5,
     },
     Vertex {
         // G - top left - back
         position: [-0.5, 0.5, -1.],
-        light: 1.,
+        idx: 6,
     },
     Vertex {
         // H - bottom left - back
         position: [-0.5, -0.5, -1.],
-        light: 1.,
+        idx: 7,
     },
 ];
 const INDICES: &[u16] = &[
