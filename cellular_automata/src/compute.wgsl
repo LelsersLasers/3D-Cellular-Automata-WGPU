@@ -4,6 +4,11 @@ struct Cell {
 	neighbors: i32,
 };
 
+struct InstanceRaw {
+    model: mat4x4<f32>,
+    color: vec3<f32>,
+}
+
 struct Wrapped {
     x: i32,
     padding0: i32,
@@ -23,6 +28,9 @@ struct Rules {
 var<uniform> rules: Rules;
 @group(0) @binding(1)
 var<storage, read_write> cells: array<Cell>;
+
+@group(0) @binding(2)
+var<storage, read_write> instances: array<InstanceRaw>;
 
 
 fn three_to_one(x: u32, y: u32, z: u32) -> u32 {
@@ -83,4 +91,15 @@ fn sync(@builtin(global_invocation_id) global_id: vec3<u32>) {
         i32(cells[idx].hp == rules.state) * (cells[idx].hp - 1 + rules.survival[cells[idx].neighbors].x) + // alive
         i32(cells[idx].hp < 0) * (rules.spawn[cells[idx].neighbors].x * (rules.state + 1) - 1) +  // dead
         i32(cells[idx].hp >= 0 && cells[idx].hp < rules.state) * (cells[idx].hp - 1); // dying
+
+    if cells[idx].hp >= 0 {
+        let oob_idx = three_to_one(rules.cell_bounds, rules.cell_bounds, rules.cell_bounds);
+        instances[oob_idx].model = mat4x4<f32>(
+            vec4<f32>(1.0, 0.0, 0.0, 0.0),
+            vec4<f32>(0.0, 1.0, 0.0, 0.0),
+            vec4<f32>(0.0, 0.0, 1.0, 0.0),
+            vec4<f32>(cells[idx].position[0], cells[idx].position[1], cells[idx].position[2], 1.0),
+        );
+        instances[oob_idx].color = vec3<f32>(1.0, 0.0, 0.0);
+    }
 }

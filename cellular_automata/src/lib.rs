@@ -452,8 +452,12 @@ struct State {
     depth_texture: texture::Texture,
     render_pipeline: wgpu::RenderPipeline,
 
-    compute_storage_buffer: wgpu::Buffer,
-    compute_staging_buffer: wgpu::Buffer,
+    compute_storage_buffer_cells: wgpu::Buffer,
+    compute_staging_buffer_cells: wgpu::Buffer,
+
+    compute_storage_buffer_instances: wgpu::Buffer,
+    compute_staging_buffer_instances: wgpu::Buffer,
+
     compute_bind_group: wgpu::BindGroup,
 
     sync_compute_pipeline: wgpu::ComputePipeline,
@@ -683,29 +687,45 @@ impl State {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("compute.wgsl").into()),
         });
-        let compute_staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Compute Staging Buffer"),
+
+        let compute_staging_buffer_cells = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compute Staging Buffer for Cells"),
             size: cells.len() as u64 * std::mem::size_of::<Cell>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let compute_storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Compute Storage Buffer"),
+        let compute_storage_buffer_cells = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Compute Storage Buffer for Cells"),
             contents: bytemuck::cast_slice(&cells),
             usage: wgpu::BufferUsages::STORAGE
                 | wgpu::BufferUsages::COPY_DST
                 | wgpu::BufferUsages::COPY_SRC,
         });
+        
+        let compute_staging_buffer_instances = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Compute Staging Buffer for Instances"),
+            size: cells.len() as u64 * std::mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let compute_storage_buffer_instances = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Compute Storage Buffer for Instances"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
+        });
+
         let sync_compute_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Compute Pipeline"),
+                label: Some("Compute Pipeline sync"),
                 layout: None,
                 module: &compute_shader,
                 entry_point: "sync",
             });
         let cn_compute_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Compute Pipeline"),
+                label: Some("Compute Pipeline CN"),
                 layout: None,
                 module: &compute_shader,
                 entry_point: "count_neighbors",
@@ -738,7 +758,7 @@ impl State {
             contents: bytemuck::cast_slice(&[rules]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
+        println!("aaa");
         let compute_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Compute Bind Group"),
             layout: &sync_compute_bind_group_layout,
@@ -749,10 +769,15 @@ impl State {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: compute_storage_buffer.as_entire_binding(),
+                    resource: compute_storage_buffer_cells.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: compute_storage_buffer_instances.as_entire_binding(),
                 },
             ],
         });
+        println!("bbb");
 
         let font: &[u8] = include_bytes!("../assets/PixelSquare.ttf");
         let brush = wgpu_text::BrushBuilder::using_font_bytes(font)
@@ -783,8 +808,10 @@ impl State {
             camera_bind_group,
             depth_texture,
             render_pipeline,
-            compute_staging_buffer,
-            compute_storage_buffer,
+            compute_staging_buffer_cells,
+            compute_storage_buffer_cells,
+            compute_staging_buffer_instances,
+            compute_storage_buffer_instances,
             compute_bind_group,
             sync_compute_pipeline,
             cn_compute_pipeline,
@@ -845,7 +872,7 @@ impl State {
                             self.cells = Self::create_cells();
                             self.ticks = 0;
                             self.queue.write_buffer(
-                                &self.compute_storage_buffer,
+                                &self.compute_storage_buffer_cells,
                                 0,
                                 bytemuck::cast_slice(&self.cells),
                             );
@@ -908,28 +935,38 @@ impl State {
 
         if !self.paused {
             self.ticks += 1;
+            println!("ccc");
             {
                 let mut cn_compute_pass =
-                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("Count Pass") });
                 cn_compute_pass.set_pipeline(&self.cn_compute_pipeline);
                 cn_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
                 cn_compute_pass.insert_debug_marker("compute count neighbors");
                 cn_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
             }
+            println!("DOES NOT GET TO HERE ddd");
             {
                 let mut sync_compute_pass =
-                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("Sync Pass") });
                 sync_compute_pass.set_pipeline(&self.sync_compute_pipeline);
                 sync_compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
                 sync_compute_pass.insert_debug_marker("compute sync");
                 sync_compute_pass.dispatch_workgroups(CELL_BOUNDS, CELL_BOUNDS, CELL_BOUNDS);
             }
+            println!("eee");
             encoder.copy_buffer_to_buffer(
-                &self.compute_storage_buffer,
+                &self.compute_storage_buffer_cells,
                 0,
-                &self.compute_staging_buffer,
+                &self.compute_staging_buffer_cells,
                 0,
                 self.cells.len() as u64 * std::mem::size_of::<Cell>() as wgpu::BufferAddress,
+            );
+            encoder.copy_buffer_to_buffer(
+                &self.compute_storage_buffer_instances,
+                0,
+                &self.compute_staging_buffer_instances,
+                0,
+                self.cells.len() as u64 * std::mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
             );
         }
 
@@ -1012,7 +1049,8 @@ impl State {
         output.present();
 
         if !self.paused {
-            let compute_buffer_slice = self.compute_staging_buffer.slice(..);
+            // TODO for instances
+            let compute_buffer_slice = self.compute_staging_buffer_cells.slice(..);
             let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
             compute_buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
@@ -1023,7 +1061,7 @@ impl State {
                 self.cells = bytemuck::cast_slice(&data).to_vec();
 
                 drop(data);
-                self.compute_staging_buffer.unmap();
+                self.compute_staging_buffer_cells.unmap();
             } else {
                 panic!("GPU compute failled")
             }
