@@ -55,7 +55,7 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Uint32,
-                }
+                },
             ],
         }
     }
@@ -67,6 +67,7 @@ struct Cell {
     position: [f32; 3],
     hp: i32,
     neighbors: i32,
+    lights: [f32; 8],
 }
 impl Cell {
     fn new(position: [f32; 3], hp: i32) -> Self {
@@ -74,6 +75,7 @@ impl Cell {
             position,
             hp,
             neighbors: 0,
+            lights: [1.; 8],
         }
     }
     fn get_color(&self) -> [f32; 3] {
@@ -98,7 +100,7 @@ impl Cell {
         Instance {
             position: self.position,
             color: self.get_color(),
-            lights: [1.; 8],
+            lights: self.lights,
         }
     }
     fn should_draw(&self) -> bool {

@@ -2,6 +2,7 @@ struct Cell {
     position: array<f32, 3>,
 	hp: i32,
 	neighbors: i32,
+    lights: array<f32, 8>,
 };
 
 struct Wrapped {
