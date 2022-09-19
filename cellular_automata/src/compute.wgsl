@@ -29,6 +29,15 @@ var<storage, read_write> cells: array<Cell>;
 fn three_to_one(x: u32, y: u32, z: u32) -> u32 {
     return z + y * rules.cell_bounds + x * rules.cell_bounds * rules.cell_bounds;
 }
+fn valid_idx(x: u32, y: u32, z: u32, offset_x: i32, offset_y: i32, offset_z: i32) -> bool {
+    return
+           i32(x) + offset_x >= 0
+        && i32(x) + offset_x < i32(rules.cell_bounds)
+        && i32(y) + offset_y >= 0
+        && i32(y) + offset_y < i32(rules.cell_bounds)
+        && i32(z) + offset_z >= 0
+        && i32(z) + offset_z < i32(rules.cell_bounds);
+}
 
 @compute @workgroup_size(1)
 fn count_neighbors(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -52,12 +61,7 @@ fn count_neighbors(@builtin(global_invocation_id) global_id: vec3<u32>) {
     for (var x: i32 = -1; x < 2; x++) {
         for (var y: i32 = -1; y < 2; y++) {
             for (var z: i32 = -1; z < 2; z++) {
-                if i32(global_id.x) + x >= 0
-                    && i32(global_id.x) + x < i32(rules.cell_bounds)
-                    && i32(global_id.y) + y >= 0
-                    && i32(global_id.y) + y < i32(rules.cell_bounds)
-                    && i32(global_id.z) + z >= 0
-                    && i32(global_id.z) + z < i32(rules.cell_bounds)
+                if valid_idx(global_id.x, global_id.y, global_id.z, x, y, z)
                     && cells[three_to_one(
                         u32(i32(global_id.x) + x),
                         u32(i32(global_id.y) + y),
