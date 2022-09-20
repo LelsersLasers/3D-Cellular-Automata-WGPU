@@ -21,7 +21,6 @@
     - [o]: true fullscreen toggle
 - Improved left bar
     - Toggle: [p]
-- Cross section [c]
 - Change simulation rules
     - Read starting rules from json
     - Keybinds to change rules

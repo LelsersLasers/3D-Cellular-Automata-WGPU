@@ -472,9 +472,11 @@ struct State {
     backend: wgpu::Backend,
 
     p_tk: ToggleKey,
+    c_tk: ToggleKey,
     rmb_tk: ToggleKey,
 
     paused: bool,
+    cross_section: bool,
 
     scissor_rect: (u32, u32, u32, u32),
 
@@ -553,7 +555,7 @@ impl State {
             zfar: CELL_BOUNDS as f32 * 5.,
             lat: 0.35,
             lon: 0.35,
-            radius: CELL_BOUNDS as f64 * 2.5,
+            radius: CELL_BOUNDS as f64 * 2.2,
             turn_speed: std::f64::consts::PI / 4.,
             zoom_speed: CELL_BOUNDS as f64 / 4.,
             drag_speed: 1. / 200.,
@@ -764,9 +766,11 @@ impl State {
         let ticks = 0;
 
         let p_tk = ToggleKey::new();
+        let c_tk = ToggleKey::new();
         let rmb_tk = ToggleKey::new();
 
         let paused = false;
+        let cross_section = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
 
@@ -798,8 +802,10 @@ impl State {
             ticks,
             backend,
             p_tk,
+            c_tk,
             rmb_tk,
             paused,
+            cross_section,
             scissor_rect,
             cells,
         }
@@ -855,13 +861,18 @@ impl State {
                         if pressed {
                             self.camera_staging.camera.lat = 0.35;
                             self.camera_staging.camera.lon = 0.35;
-                            self.camera_staging.camera.radius = CELL_BOUNDS as f64 * 2.5;
+                            self.camera_staging.camera.radius = CELL_BOUNDS as f64 * 2.2;
                             self.camera_staging.camera.update_eye();
                         }
                     }
                     VirtualKeyCode::P => {
                         if self.p_tk.down(pressed) {
                             self.paused = !self.paused;
+                        }
+                    }
+                    VirtualKeyCode::C => {
+                        if self.c_tk.down(pressed) {
+                            self.cross_section = !self.cross_section;
                         }
                     }
                     _ => {}
@@ -1037,10 +1048,9 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        for cell in self.cells.iter() {
-            // TODO: possibly remove this loop
-            if cell.should_draw() {
-                self.instance_data.push(cell.create_instance().to_raw());
+        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+            if self.cells[i].should_draw() {
+                self.instance_data.push(self.cells[i].create_instance().to_raw());
             }
         }
     }
