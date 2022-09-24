@@ -874,8 +874,10 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
+        let rules_str = format!("Rule: 2,6,9 / 4,6,8,9 / 10 / Moore\n");
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
+        let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
         let backend_str = format!("Backend: {:?}\n", self.backend);
         let font_size = self.scissor_rect.2 as f32 / 75.;
 
@@ -885,12 +887,22 @@ impl State {
                 self.scissor_rect.1 as f32 + self.scissor_rect.2 as f32 / 100.,
             ))
             .add_text(
+                glyph_brush::Text::new(&rules_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size * 1.5),
+            )
+            .add_text(
                 glyph_brush::Text::new(&fps_str[..])
                     .with_color(TEXT_COLOR)
                     .with_scale(font_size),
             )
             .add_text(
                 glyph_brush::Text::new(&ticks_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            )
+            .add_text(
+                glyph_brush::Text::new(&bounds_str[..])
                     .with_color(TEXT_COLOR)
                     .with_scale(font_size),
             )
