@@ -487,9 +487,11 @@ struct State {
     backend: wgpu::Backend,
 
     p_tk: ToggleKey,
+    c_tk: ToggleKey,
     lmb_tk: ToggleKey,
 
     paused: bool,
+    cross_section: bool,
 
     scissor_rect: (u32, u32, u32, u32),
 
@@ -700,9 +702,11 @@ impl State {
         let ticks = 0;
 
         let p_tk = ToggleKey::new();
+        let c_tk = ToggleKey::new();
         let lmb_tk = ToggleKey::new();
 
         let paused = false;
+        let cross_section = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
 
@@ -729,8 +733,10 @@ impl State {
             ticks,
             backend,
             p_tk,
+            c_tk,
             lmb_tk,
             paused,
+            cross_section,
             scissor_rect,
             cells,
         }
@@ -788,6 +794,11 @@ impl State {
                     VirtualKeyCode::P => {
                         if self.p_tk.down(pressed) {
                             self.paused = !self.paused;
+                        }
+                    }
+                    VirtualKeyCode::C => {
+                        if self.c_tk.down(pressed) {
+                            self.cross_section = !self.cross_section;
                         }
                     }
                     _ => {}
@@ -925,9 +936,9 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        for cell in self.cells.iter() {
-            if cell.should_draw() {
-                self.instance_data.push(cell.create_instance().to_raw());
+        for i in 0..self.cells.len()/(1 + self.cross_section as usize) {
+            if self.cells[i].should_draw() {
+                self.instance_data.push(self.cells[i].create_instance().to_raw());
             }
         }
     }
