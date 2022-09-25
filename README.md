@@ -1,7 +1,7 @@
 # 3D-Cellular-Automata-WGPU
-3d Cellular Automata using WGPU in Rust
+3d Cellular Automata using WGPU in Rust (for the web and using compute shaders)
 
-The branches are very messy... I recommend you get working downloads from itch.io: https://lelserslasers.itch.io/3d-cellular-automata-wgpu-rust
+The branches are very messy... I recommend you get working downloads from itch.io: https://lelserslasers.itch.io/3d-cellular-automata-wgpu-rust (and because it runs on the web, you can try it without downloading it).
 
 Current branches:
 - NoComputeShader
