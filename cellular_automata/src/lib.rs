@@ -1074,7 +1074,7 @@ impl State {
                         && y <= CELL_BOUNDS * 2 / 3
                         && z >= CELL_BOUNDS / 3
                         && z <= CELL_BOUNDS * 2 / 3
-                        && ALIVE_CHANCE_ON_START < rng.gen()
+                        && ALIVE_CHANCE_ON_START > rng.gen()
                     {
                         cell.hp = STATE;
                     }
