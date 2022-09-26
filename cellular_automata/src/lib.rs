@@ -225,12 +225,19 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
+// const STATE: i32 = 10;
+// const SURVIVAL: [i32; 27] = [
+//     0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// ];
+// const SPAWN: [i32; 27] = [
+//     0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// ];
 const STATE: i32 = 10;
 const SURVIVAL: [i32; 27] = [
-    0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 const SPAWN: [i32; 27] = [
-    0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 const ALIVE_CHANCE_ON_START: f32 = 0.15;
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -980,7 +987,7 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
-        let rules_str = format!("Rule: 2,6,9 / 4,6,8,9 / 10 / Moore\n");
+        let rules_str = format!("Rule: 4,5,6,7 / 6,7,8 / 10 / Moore\n");
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
         let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
