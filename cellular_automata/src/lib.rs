@@ -11,6 +11,8 @@ use pollster::FutureExt as _;
 use cgmath::prelude::*;
 
 use rand::prelude::*;
+use rayon::prelude::*;
+
 mod texture;
 
 #[cfg(target_arch = "wasm32")]
@@ -55,7 +57,7 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32,
-                }
+                },
             ],
         }
     }
@@ -1059,12 +1061,17 @@ impl State {
     }
 
     fn calc_instance_data(&mut self) {
-        self.instance_data.clear();
-        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
-            if self.cells[i].should_draw() {
-                self.instance_data.push(self.cells[i].create_instance().to_raw());
-            }
-        }
+        self.instance_data = self
+            .cells
+            .par_iter()
+            .filter_map(|cell| {
+                if cell.should_draw() {
+                    Some(cell.create_instance().to_raw())
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
     fn create_cells() -> Vec<Cell> {
         let mut rng = rand::thread_rng();
