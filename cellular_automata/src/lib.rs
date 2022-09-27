@@ -214,7 +214,7 @@ const INDICES: &[u16] = &[
     2, 1, 7, 5, 2, 7, // bottom face
 ];
 
-const CELL_BOUNDS: u32 = 96;
+const CELL_BOUNDS: u32 = 120;
 const INSTANCE_DISPLACEMENT: [f32; 3] = [
     CELL_BOUNDS as f32 * 0.5,
     CELL_BOUNDS as f32 * 0.5,
