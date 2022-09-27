@@ -1061,8 +1061,7 @@ impl State {
     }
 
     fn calc_instance_data(&mut self) {
-        self.instance_data = self
-            .cells
+        self.instance_data = self.cells[0..self.cells.len() / (1 + self.cross_section as usize)]
             .par_iter()
             .filter_map(|cell| {
                 if cell.should_draw() {
