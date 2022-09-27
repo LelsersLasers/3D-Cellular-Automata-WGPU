@@ -57,7 +57,7 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32,
-                }
+                },
             ],
         }
     }
@@ -1061,25 +1061,17 @@ impl State {
     }
 
     fn calc_instance_data(&mut self) {
-
-        // use rayon::prelude::*;
-        // fn sum_of_squares(input: &[i32]) -> i32 {
-        //     input.par_iter()
-        //         .map(|i| i * i)
-        //         .sum()
-        // }
-        self.instance_data.clear();
-        self.instance_data = self.cells.par_iter().filter(|cell| cell.should_draw()).map(|cell| cell.create_instance().to_raw()).collect();
-        // self.cells.par_iter().enumerate().for_each(|(i, cell)| {
-        //     if cell.should_draw() {
-        //         self.instance_data.push(cell.create_instance().to_raw());
-        //     }
-        // });
-        // for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
-        //     if self.cells[i].should_draw() {
-        //         self.instance_data.push(self.cells[i].create_instance().to_raw());
-        //     }
-        // }
+        self.instance_data = self
+            .cells
+            .par_iter()
+            .filter_map(|cell| {
+                if cell.should_draw() {
+                    Some(cell.create_instance().to_raw())
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
     fn create_cells() -> Vec<Cell> {
         let mut rng = rand::thread_rng();
