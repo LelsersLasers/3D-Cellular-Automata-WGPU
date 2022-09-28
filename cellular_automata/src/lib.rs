@@ -9,6 +9,9 @@ use wgpu::util::DeviceExt;
 use cgmath::prelude::*;
 
 use rand::prelude::*;
+
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 mod texture;
 
 #[cfg(target_arch = "wasm32")]
@@ -935,12 +938,16 @@ impl State {
     }
 
     fn calc_instance_data(&mut self) {
-        self.instance_data.clear();
-        for i in 0..self.cells.len()/(1 + self.cross_section as usize) {
-            if self.cells[i].should_draw() {
-                self.instance_data.push(self.cells[i].create_instance().to_raw());
-            }
-        }
+        self.instance_data = self.cells[0..self.cells.len() / (1 + self.cross_section as usize)]
+            .par_iter()
+            .filter_map(|cell| {
+                if cell.should_draw() {
+                    Some(cell.create_instance().to_raw())
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
     fn create_cells() -> Vec<Cell> {
         let mut rng = rand::thread_rng();
