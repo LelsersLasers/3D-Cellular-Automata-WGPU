@@ -8,20 +8,31 @@
     <title>3d Cellular Automata [WGPU/Rust]</title>
 </head>
 
-<body id="body" style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
+<body style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
+
+    <div id="add_canvas_to">
+        <input type="text" id="joe">
+        <button onclick="joe()">Apply</button>
+    </div>
+
   <script type="module">
       import init from "./pkg/cellular_automata.js";
+      import set_state from "./pkg/cellular_automata.js";
       init().then(() => {
         console.log("WASM Loaded");
         resizeCanvas();
     });
+    function joe() {
+        console.log("joe");
+        set_state(1, 2);
+    }
   </script>
   <script>
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
             if (canvas) {
-                let maxWidth = (window.innerWidth - 4);
-                let maxHeight = (window.innerHeight - 4);
+                let maxWidth = (window.innerWidth - 24);
+                let maxHeight = (window.innerHeight - 60);
                 let width = Math.min(maxWidth, (maxHeight * 16) / 9);
                 let height = Math.min(maxHeight, (maxWidth * 9) / 16);
                 canvas.style.width = width + "px";
@@ -30,16 +41,37 @@
         }
   </script>
   <style>
-      canvas {
-            background-color: #2b313f;
-            border: 2px solid #EBCB8B;
+        input {
+            background-color: #4C566A;
+            color: #ECEFF4;
+            border: 1px solid #BF616A;
+            height: 40px;
+            font-size: 28px;
+        }
+        input:focus {
+            border: 1px solid #BF616A;
+        }
+        button {
+            border: 1px solid #BF616A;
+            height: 40px;
+            font-size: 28px;
+            background-color: #4C566A;
+            color: #ECEFF4;
+        }
+        #add_canvas_to {
             margin: 0 auto;
             padding: 0;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%); 
-      }
+        }
+        canvas {
+            background-color: #2b313f;
+            border: 2px solid #EBCB8B;
+            margin: 0 auto;
+            padding: 0;
+        }
   </style>
 </body>
 
