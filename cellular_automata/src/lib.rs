@@ -75,11 +75,11 @@ impl Cell {
             neighbors: 0,
         }
     }
-    fn get_color(&self) -> [f32; 3] {
-        if self.hp == STATE as i32 {
+    fn get_color(&self, state: u32) -> [f32; 3] {
+        if self.hp == state as i32 {
             ALIVE_COLOR
         } else {
-            let intensity = (1. + self.hp as f32) / (STATE as f32);
+            let intensity = (1. + self.hp as f32) / (state as f32);
             [
                 rgb_to_srgb(
                     intensity * (DYING_COLOR[0] - DEAD_COLOR[0]) as f32 + DEAD_COLOR[0] as f32,
@@ -93,24 +93,29 @@ impl Cell {
             ]
         }
     }
-    fn create_instance(&self) -> Instance {
+    fn create_instance(&self, state: u32) -> Instance {
         Instance {
             position: self.position,
-            color: self.get_color(),
+            color: self.get_color(state),
         }
     }
-    fn get_alive(&self) -> bool {
-        self.hp == STATE as i32
+    fn get_alive(&self, state: u32) -> bool {
+        self.hp == state as i32
     }
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-    fn sync(&mut self) {
-        self.hp = (self.hp == STATE as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
-            (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (STATE + 1) as i32 - 1) +  // dead
-            (self.hp >= 0 && self.hp < STATE as i32) as i32 * (self.hp - 1); // dying
+    fn sync(&mut self, state: u32) {
+        self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
+            (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
+            (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
 }
+
+#[wasm_bindgen]
+pub fn set_state(a: u32, new_state: u32) {
+    
+} 
 
 #[derive(Clone, Copy)]
 struct Instance {
@@ -232,7 +237,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
-const STATE: u32 = 10;
 const SURVIVAL: [bool; 27] = [
     false, false, true, false, false, false, true, false, false, true, false, false, false, false,
     false, false, false, false, false, false, false, false, false, false, false, false, false,
@@ -444,7 +448,7 @@ impl CameraUniform {
     }
 }
 
-struct State {
+pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -484,9 +488,13 @@ struct State {
     scissor_rect: (u32, u32, u32, u32),
 
     cells: Vec<Cell>,
+
+    state: u32,
 }
 impl State {
     async fn new(window: &Window) -> Self {
+        let state = 10;
+
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -670,9 +678,9 @@ impl State {
         let num_indices = INDICES.len() as u32;
 
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
-        let cells: Vec<Cell> = Self::create_cells();
+        let cells: Vec<Cell> = Self::create_cells(state);
         for cell in cells.iter() {
-            instance_data.push(cell.create_instance().to_raw());
+            instance_data.push(cell.create_instance(state).to_raw());
         }
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -727,6 +735,7 @@ impl State {
             cross_section,
             scissor_rect,
             cells,
+            state,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -767,7 +776,7 @@ impl State {
                 match keycode {
                     VirtualKeyCode::R => {
                         if pressed {
-                            self.cells = Self::create_cells();
+                            self.cells = Self::create_cells(self.state);
                             self.ticks = 0;
                         }
                     }
@@ -938,11 +947,11 @@ impl State {
         self.instance_data.clear();
         for i in 0..self.cells.len()/(1 + self.cross_section as usize) {
             if self.cells[i].should_draw() {
-                self.instance_data.push(self.cells[i].create_instance().to_raw());
+                self.instance_data.push(self.cells[i].create_instance(self.state).to_raw());
             }
         }
     }
-    fn create_cells() -> Vec<Cell> {
+    fn create_cells(state: u32) -> Vec<Cell> {
         let mut rng = rand::thread_rng();
         let mut cells = Vec::new();
         for x in 0..CELL_BOUNDS {
@@ -964,7 +973,7 @@ impl State {
                         && z <= CELL_BOUNDS * 2 / 3
                         && ALIVE_CHANCE_ON_START < rng.gen()
                     {
-                        cell.hp = STATE as i32;
+                        cell.hp = state as i32;
                     }
                     cells.push(cell);
                 }
@@ -985,7 +994,7 @@ impl State {
                                 (y as i32 + offset.1) as u32,
                                 (z as i32 + offset.2) as u32,
                             )]
-                            .get_alive()
+                            .get_alive(self.state)
                             {
                                 self.cells[one_idx].neighbors += 1;
                             }
@@ -997,7 +1006,7 @@ impl State {
     }
     fn sync_cells(&mut self) {
         for cell in self.cells.iter_mut() {
-            cell.sync();
+            cell.sync(self.state);
         }
     }
 }
