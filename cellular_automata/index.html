@@ -11,8 +11,6 @@
 <body style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
 
     <div id="add_canvas_to">
-        <input type="text" id="joe">
-        <button onclick="joe()">Apply</button>
     </div>
 
   <script type="module">
@@ -22,10 +20,6 @@
         console.log("WASM Loaded");
         resizeCanvas();
     });
-    function joe() {
-        console.log("joe");
-        set_state(1, 2);
-    }
   </script>
   <script>
         function resizeCanvas() {

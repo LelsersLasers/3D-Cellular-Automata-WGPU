@@ -14,6 +14,9 @@ mod texture;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+
 
 struct ToggleKey {
     was_down: bool,
@@ -112,9 +115,9 @@ impl Cell {
     }
 }
 
-#[wasm_bindgen]
-pub fn set_state(a: u32, new_state: u32) {
-    
+
+pub fn set_state(all: &mut State, new_state: u32) {
+    all.state = new_state;  
 } 
 
 #[derive(Clone, Copy)]
@@ -1039,12 +1042,31 @@ pub async fn run() {
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
-                let dst = doc.get_element_by_id("add_canvas_to")?;
+                let div = doc.get_element_by_id("add_canvas_to")?;
                 let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
+
+                let input = doc.create_element("input").ok()?;
+                input.set_id("joe");
+                input.set_attribute("type", "text").ok()?;
+
+                let apply_button = doc.create_element("button").ok()?.dyn_into::<web_sys::HtmlElement>().ok()?;
+                apply_button.set_text_content(Some("Apply"));
+
+                
+                let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::MouseEvent| {
+                    // div.append_child(&input).ok()?;
+                });
+                apply_button.set_onclick(Some(closure.as_ref().unchecked_ref()));
+                closure.forget();
+
+                div.append_child(&input).ok()?;
+                div.append_child(&apply_button).ok()?;
+                div.append_child(&canvas).ok()?;
+
+
                 Some(())
             })
-            .expect("Couldn't add canvas to doc");
+            .expect("Couldn't add elements to doc/window");
     }
 
     let mut state = State::new(&window).await;
