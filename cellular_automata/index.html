@@ -10,10 +10,13 @@
 
 <body id="body" style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
   <script type="module">
-      import init from "./pkg/cellular_automata.js";
-      init().then(() => {
-        console.log("WASM Loaded");
-        resizeCanvas();
+        import init, { initThreadPool /* ... */ } from './pkg/cellular_automata.js';
+        await init();
+        await initThreadPool(navigator.hardwareConcurrency);
+
+        init().then(() => {
+            console.log("WASM Loaded");
+            resizeCanvas();
     });
   </script>
   <script>
