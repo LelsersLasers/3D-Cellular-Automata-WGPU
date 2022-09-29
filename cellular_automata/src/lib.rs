@@ -479,6 +479,7 @@ pub struct State {
     lmb_tk: ToggleKey,
 
     paused: bool,
+    can_run: bool,
     cross_section: bool,
 
     scissor_rect: (u32, u32, u32, u32),
@@ -698,6 +699,7 @@ impl State {
         let lmb_tk = ToggleKey::new();
 
         let paused = false;
+        let can_run = true;
         let cross_section = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
@@ -728,6 +730,7 @@ impl State {
             c_tk,
             lmb_tk,
             paused,
+            can_run,
             cross_section,
             scissor_rect,
             cells,
@@ -810,7 +813,7 @@ impl State {
         self.camera_staging.camera.process_events(event)
     }
     fn update(&mut self) {
-        if !self.paused {
+        if !self.paused && self.can_run {
             self.count_neighbors();
             self.sync_cells();
             self.ticks += 1;
@@ -1086,10 +1089,8 @@ pub async fn run() {
 
             #[cfg(target_arch = "wasm32")]
             {
-                let rule_state: u32 = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
+                let document = web_sys::window().unwrap().document().unwrap();
+                let rule_state: u32 = document
                     .get_element_by_id("state_rule_rust")
                     .unwrap()
                     .dyn_into::<web_sys::HtmlInputElement>()
@@ -1097,6 +1098,13 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
+                let settings_hidden = document
+                    .get_element_by_id("settings")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlElement>()
+                    .unwrap()
+                    .hidden();
+                state.can_run = settings_hidden;
 
                 if last_rule_state != rule_state {
                     state.set_rule_state(rule_state);
