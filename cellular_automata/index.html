@@ -11,6 +11,12 @@
 <body style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
 
     <div id="add_canvas_to">
+        <input type="text" id="state_rule_input" value="10" />
+        <button onclick="apply()">Apply</button>
+    </div>
+
+    <div id="pass_to_rust" hidden>
+        <input type="hidden" id="state_rule_rust" value="10" />
     </div>
 
   <script type="module">
@@ -21,6 +27,9 @@
     });
   </script>
   <script>
+        function apply() {
+            document.getElementById("state_rule_rust").value = document.getElementById("state_rule_input").value;
+        }
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
             if (canvas) {

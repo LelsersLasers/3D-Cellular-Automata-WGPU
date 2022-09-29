@@ -772,8 +772,7 @@ impl State {
                 match keycode {
                     VirtualKeyCode::R => {
                         if pressed {
-                            self.cells = Self::create_cells(self.state);
-                            self.ticks = 0;
+                            self.reset();
                         }
                     }
                     VirtualKeyCode::Space => {
@@ -948,6 +947,10 @@ impl State {
             }
         }
     }
+    fn reset(&mut self) {
+        self.cells = Self::create_cells(self.state);
+        self.ticks = 0;
+    }
     fn create_cells(state: u32) -> Vec<Cell> {
         let mut rng = rand::thread_rng();
         let mut cells = Vec::new();
@@ -1030,7 +1033,8 @@ pub async fn run() {
         .build(&event_loop)
         .unwrap();
 
-    let mut rule_state: u32 = 10;
+    // let rule_state: Rc<RefCell<u32>> = Rc::new(RefCell::new(10));
+    let mut last_rule_state: u32 = 10;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -1042,40 +1046,7 @@ pub async fn run() {
             .and_then(|doc| {
                 let div = doc.get_element_by_id("add_canvas_to")?;
                 let canvas = web_sys::Element::from(window.canvas());
-
-                let input = doc.create_element("input").ok()?;
-                input.set_id("joe");
-                input.set_attribute("type", "text").ok()?;
-
-                let apply_button = doc
-                    .create_element("button")
-                    .ok()?
-                    .dyn_into::<web_sys::HtmlElement>()
-                    .ok()?;
-                apply_button.set_id("tim");
-                apply_button.set_text_content(Some("Apply"));
-
-                let closure = Closure::<>::new(move || {
-                    let value = doc
-                        .get_element_by_id("joe")
-                        .unwrap()
-                        .dyn_into::<web_sys::HtmlInputElement>()
-                        .unwrap()
-                        .value();
-                    rule_state = value.parse().unwrap();
-                    doc.get_element_by_id("tim")
-                        .unwrap()
-                        .dyn_into::<web_sys::HtmlElement>()
-                        .unwrap()
-                        .set_text_content(Some(&value));
-                });
-                apply_button.set_onclick(Some(closure.as_ref().unchecked_ref()));
-                closure.forget();
-
-                div.append_child(&input).ok()?;
-                div.append_child(&apply_button).ok()?;
                 div.append_child(&canvas).ok()?;
-
                 Some(())
             })
             .expect("Couldn't add elements to doc/window");
@@ -1112,8 +1083,27 @@ pub async fn run() {
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
             state.update();
-            state.set_rule_state(rule_state);
-            println!("{}", rule_state);
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                let rule_state: u32 = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id("state_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+
+                if last_rule_state != rule_state {
+                    state.set_rule_state(rule_state);
+                    state.reset();
+                    last_rule_state = rule_state;
+                }
+            }
             match state.render() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
