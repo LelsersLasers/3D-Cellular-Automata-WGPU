@@ -8,9 +8,10 @@
     <title>3d Cellular Automata [WGPU/Rust]</title>
 </head>
 
-<body style="margin: 0; background-color: #2b313f;" onresize="resizeCanvas()">
+<body onresize="resizeCanvas()">
 
-    <div id="add_canvas_to">
+    <div id="add_canvas_to"></div>
+    <div id="settings" hidden>
         <input type="text" id="state_rule_input" value="10" />
         <button onclick="apply()">Apply</button>
     </div>
@@ -27,14 +28,22 @@
     });
   </script>
   <script>
+        document.addEventListener("keydown", keyDownHandle, false);
+        function keyDownHandle(e) {
+            if (e.key === "o") {
+                document.getElementById("settings").hidden = !document.getElementById("settings").hidden;
+                document.getElementById("add_canvas_to").hidden = !document.getElementById("add_canvas_to").hidden;
+            }
+        }
+
         function apply() {
             document.getElementById("state_rule_rust").value = document.getElementById("state_rule_input").value;
         }
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
             if (canvas) {
-                let maxWidth = (window.innerWidth - 24);
-                let maxHeight = (window.innerHeight - 60);
+                let maxWidth = window.innerWidth - 4;
+                let maxHeight = window.innerHeight - 4;
                 let width = Math.min(maxWidth, (maxHeight * 16) / 9);
                 let height = Math.min(maxHeight, (maxWidth * 9) / 16);
                 canvas.style.width = width + "px";
@@ -43,6 +52,14 @@
         }
   </script>
   <style>
+        body {
+            margin: 0;
+            background-color: #2b313f;
+        }
+        div {
+            margin: 0;
+            padding: 0;
+        }
         input {
             background-color: #4C566A;
             color: #ECEFF4;
