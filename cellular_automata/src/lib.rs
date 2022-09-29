@@ -106,9 +106,9 @@ impl Cell {
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-    fn sync(&mut self, state: u32) {
-        self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
-            (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
+    fn sync(&mut self, survival: [bool; 27], spawn: [bool; 27], state: u32, ) {
+        self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + survival[self.neighbors as usize] as i32) + // alive
+            (self.hp < 0) as i32 * (spawn[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
 }
@@ -233,14 +233,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
-const SURVIVAL: [bool; 27] = [
-    false, false, true, false, false, false, true, false, false, true, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-];
-const SPAWN: [bool; 27] = [
-    false, false, false, false, true, false, true, false, true, true, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-];
 const ALIVE_CHANCE_ON_START: f32 = 0.15;
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.023104,
@@ -487,10 +479,20 @@ pub struct State {
     cells: Vec<Cell>,
 
     state: u32,
+    survival: [bool; 27],
+    spawn: [bool; 27],
 }
 impl State {
     async fn new(window: &Window) -> Self {
         let state = 10;
+        let survival = [
+            false, false, true, false, false, false, true, false, false, true, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false, false,
+        ];
+        let spawn = [
+            false, false, false, false, true, false, true, false, true, true, false, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false, false,
+        ];
 
         let size = window.inner_size();
 
@@ -734,6 +736,8 @@ impl State {
             cross_section,
             scissor_rect,
             cells,
+            survival,
+            spawn,
             state,
         }
     }
@@ -881,7 +885,14 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
-        let rules_str = format!("Rule: 2,6,9 / 4,6,8,9 / {} / Moore\n", self.state);
+        let mut survival_text = String::from("");
+        for i in 0..26 {
+            if self.survival[i] {
+                survival_text.push_str(&i.to_string());
+                survival_text.push_str(",");
+            }
+        } 
+        let rules_str = format!("Rule: {} / 4,6,8,9 / {} / Moore\n", survival_text, self.state);
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
         let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
@@ -1009,12 +1020,12 @@ impl State {
     }
     fn sync_cells(&mut self) {
         for cell in self.cells.iter_mut() {
-            cell.sync(self.state);
+            cell.sync(self.survival, self.spawn, self.state);
         }
     }
-    fn set_rule_state(&mut self, new_state: u32) {
-        self.state = new_state;
-    }
+    // fn set_rule_state(&mut self, new_state: u32) {
+    //     self.state = new_state;
+    // }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -1036,7 +1047,7 @@ pub async fn run() {
         .build(&event_loop)
         .unwrap();
 
-    // let rule_state: Rc<RefCell<u32>> = Rc::new(RefCell::new(10));
+    let mut last_rule_survival: Vec<u32> = vec![2, 6, 9];
     let mut last_rule_state: u32 = 10;
 
     #[cfg(target_arch = "wasm32")]
@@ -1098,6 +1109,18 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
+                let rule_survival: Vec<u32> = document
+                    .get_element_by_id("survive_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+
                 let settings_hidden = document
                     .get_element_by_id("settings")
                     .unwrap()
@@ -1106,10 +1129,16 @@ pub async fn run() {
                     .hidden();
                 state.can_run = settings_hidden;
 
-                if last_rule_state != rule_state {
-                    state.set_rule_state(rule_state);
+                if last_rule_state != rule_state || last_rule_survival != rule_survival {
+                    state.state = rule_state;
+                    for i in 0..26 {
+                        state.survival[i] = rule_survival.contains(&(i as u32));
+                    }
+
                     state.reset();
+                    
                     last_rule_state = rule_state;
+                    last_rule_survival = rule_survival;
                 }
             }
             match state.render() {
