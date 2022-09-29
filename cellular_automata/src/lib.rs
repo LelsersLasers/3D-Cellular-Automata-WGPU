@@ -17,7 +17,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
-
 struct ToggleKey {
     was_down: bool,
 }
@@ -33,9 +32,8 @@ impl ToggleKey {
             self.was_down = false;
         }
         false
-	}
+    }
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -58,7 +56,7 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32,
-                }
+                },
             ],
         }
     }
@@ -114,11 +112,6 @@ impl Cell {
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
 }
-
-
-pub fn set_state(all: &mut State, new_state: u32) {
-    all.state = new_state;  
-} 
 
 #[derive(Clone, Copy)]
 struct Instance {
@@ -886,7 +879,7 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
-        let rules_str = format!("Rule: 2,6,9 / 4,6,8,9 / 10 / Moore\n");
+        let rules_str = format!("Rule: 2,6,9 / 4,6,8,9 / {} / Moore\n", self.state);
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
         let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
@@ -948,9 +941,10 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        for i in 0..self.cells.len()/(1 + self.cross_section as usize) {
+        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
             if self.cells[i].should_draw() {
-                self.instance_data.push(self.cells[i].create_instance(self.state).to_raw());
+                self.instance_data
+                    .push(self.cells[i].create_instance(self.state).to_raw());
             }
         }
     }
@@ -1012,6 +1006,9 @@ impl State {
             cell.sync(self.state);
         }
     }
+    fn set_rule_state(&mut self, new_state: u32) {
+        self.state = new_state;
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -1033,9 +1030,10 @@ pub async fn run() {
         .build(&event_loop)
         .unwrap();
 
+    let mut rule_state: u32 = 10;
+
     #[cfg(target_arch = "wasm32")]
     {
-
         window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
 
         use winit::platform::web::WindowExtWebSys;
@@ -1049,12 +1047,27 @@ pub async fn run() {
                 input.set_id("joe");
                 input.set_attribute("type", "text").ok()?;
 
-                let apply_button = doc.create_element("button").ok()?.dyn_into::<web_sys::HtmlElement>().ok()?;
+                let apply_button = doc
+                    .create_element("button")
+                    .ok()?
+                    .dyn_into::<web_sys::HtmlElement>()
+                    .ok()?;
+                apply_button.set_id("tim");
                 apply_button.set_text_content(Some("Apply"));
 
-                
-                let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::MouseEvent| {
-                    // div.append_child(&input).ok()?;
+                let closure = Closure::<>::new(move || {
+                    let value = doc
+                        .get_element_by_id("joe")
+                        .unwrap()
+                        .dyn_into::<web_sys::HtmlInputElement>()
+                        .unwrap()
+                        .value();
+                    rule_state = value.parse().unwrap();
+                    doc.get_element_by_id("tim")
+                        .unwrap()
+                        .dyn_into::<web_sys::HtmlElement>()
+                        .unwrap()
+                        .set_text_content(Some(&value));
                 });
                 apply_button.set_onclick(Some(closure.as_ref().unchecked_ref()));
                 closure.forget();
@@ -1062,7 +1075,6 @@ pub async fn run() {
                 div.append_child(&input).ok()?;
                 div.append_child(&apply_button).ok()?;
                 div.append_child(&canvas).ok()?;
-
 
                 Some(())
             })
@@ -1100,6 +1112,8 @@ pub async fn run() {
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
             state.update();
+            state.set_rule_state(rule_state);
+            println!("{}", rule_state);
             match state.render() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
