@@ -17,23 +17,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
-struct ToggleKey {
-    was_down: bool,
-}
-impl ToggleKey {
-    pub fn new() -> Self {
-        Self { was_down: false }
-    }
-    fn down(&mut self, state: bool) -> bool {
-        if !self.was_down && state {
-            self.was_down = true;
-            return true;
-        } else if !state {
-            self.was_down = false;
-        }
-        false
-    }
-}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -459,8 +442,6 @@ pub struct State {
     ticks: u64,
     backend: wgpu::Backend,
 
-    c_tk: ToggleKey,
-
     paused: bool,
     cross_section: bool,
 
@@ -690,8 +671,6 @@ impl State {
         let delta = 0.2;
         let ticks = 0;
 
-        let c_tk = ToggleKey::new();
-
         let paused = false;
         let cross_section = false;
 
@@ -719,7 +698,6 @@ impl State {
             delta,
             ticks,
             backend,
-            c_tk,
             paused,
             cross_section,
             scissor_rect,
@@ -777,11 +755,6 @@ impl State {
                             self.camera_staging.camera.lon = 0.35;
                             self.camera_staging.camera.radius = self.cell_bounds as f64 * 2.5;
                             self.camera_staging.camera.update_eye();
-                        }
-                    }
-                    VirtualKeyCode::C => {
-                        if self.c_tk.down(pressed) {
-                            self.cross_section = !self.cross_section;
                         }
                     }
                     _ => {}
@@ -1126,7 +1099,7 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
-                
+
                 let paused: bool = document
                     .get_element_by_id("paused_rust")
                     .unwrap()
@@ -1135,8 +1108,17 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
-
                 state.paused = paused;
+
+                let cross_section: bool = document
+                    .get_element_by_id("cross_section_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.cross_section = cross_section;
 
                 if last_rule_state != rule_state
                     || last_rule_survival != rule_survival
