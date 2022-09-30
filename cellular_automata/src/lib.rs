@@ -744,11 +744,6 @@ impl State {
             } => {
                 let pressed = *state == ElementState::Pressed;
                 match keycode {
-                    VirtualKeyCode::R => {
-                        if pressed {
-                            self.reset();
-                        }
-                    }
                     VirtualKeyCode::Space => {
                         if pressed {
                             self.camera_staging.camera.lat = 0.35;
@@ -1008,7 +1003,10 @@ pub async fn run() {
     let mut last_rule_survival: Vec<u32> = vec![2, 6, 9];
     let mut last_rule_spawn: Vec<u32> = vec![4, 6, 8, 9];
     let mut last_rule_state: u32 = 10;
+
     let mut last_cell_bounds: u32 = 96;
+
+    let mut last_reset_flag: bool = false;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -1120,10 +1118,20 @@ pub async fn run() {
                     .unwrap();
                 state.cross_section = cross_section;
 
+                let reset_flag: bool = document
+                    .get_element_by_id("reset_cells_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+
                 if last_rule_state != rule_state
                     || last_rule_survival != rule_survival
                     || last_rule_spawn != rule_spawn
                     || last_cell_bounds != cell_bounds
+                    || last_reset_flag != reset_flag
                 {
                     state.state = rule_state;
                     for i in 0..26 {
@@ -1137,7 +1145,10 @@ pub async fn run() {
                     last_rule_survival = rule_survival;
                     last_rule_spawn = rule_spawn;
                     last_rule_state = rule_state;
+
                     last_cell_bounds = cell_bounds;
+                
+                    last_reset_flag = reset_flag;
                 }
             }
             match state.render() {

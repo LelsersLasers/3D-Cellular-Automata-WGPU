@@ -57,6 +57,7 @@
         <input type="hidden" id="cell_bounds_rust" value="96" />
 
         <input type="hidden" id="paused_rust" value="false" />
+        <input type="hidden" id="reset_cells_rust" value="false" />
         <input type="hidden" id="cross_section_rust" value="false" />
     </div>
 
@@ -70,6 +71,7 @@
   <script>
         let paused = false;
         let crossSection = false;
+        let resetFlag = false;
         
         function togglePause() {
             paused = !paused;
@@ -88,6 +90,10 @@
                 document.getElementById("crossSectionButton").innerHTML = "Toggle cross section [off]";
             }
             document.getElementById("cross_section_rust").value = crossSection;
+        }
+        function resetCells() {
+            resetFlag = !resetFlag;
+            document.getElementById("reset_cells_rust").value = resetFlag;
         }
         function apply() {
             let stateValue = document.getElementById("state_rule_input").value;
@@ -208,6 +214,9 @@
             width: 100%;
             margin-bottom: 0.5em;
             outline: none;
+        }
+        button:focus {
+            outline: 2px solid #EBCB8B;
         }
         #add_canvas_to {
             flex: 3;
