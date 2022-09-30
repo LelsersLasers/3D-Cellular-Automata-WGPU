@@ -17,7 +17,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -93,6 +92,11 @@ impl Cell {
         self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + survival[self.neighbors as usize] as i32) + // alive
             (self.hp < 0) as i32 * (spawn[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
+    }
+    fn update_state_rule(&mut self, old_state: u32, new_state: u32) {
+        self.hp = (self.hp < 0) as i32 * -1 + // stay dead
+            (self.hp >= 0) as i32 * (self.hp * (new_state as f32/old_state as f32) as i32);
+        // scale hp
     }
 }
 
@@ -652,7 +656,7 @@ impl State {
         let num_indices = INDICES.len() as u32;
 
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
-        let cells: Vec<Cell> = Self::create_cells(state, cell_bounds);
+        let cells: Vec<Cell> = Self::create_cells(cell_bounds);
         for cell in cells.iter() {
             instance_data.push(cell.create_instance(state).to_raw());
         }
@@ -914,38 +918,48 @@ impl State {
         }
     }
     fn reset(&mut self) {
-        self.cells = Self::create_cells(self.state, self.cell_bounds);
+        self.randomize_cells();
         self.ticks = 0;
     }
-    fn create_cells(state: u32, cell_bounds: u32) -> Vec<Cell> {
-        let mut rng = rand::thread_rng();
+    fn create_cells(cell_bounds: u32) -> Vec<Cell> {
         let mut cells = Vec::new();
         for x in 0..cell_bounds {
             for y in 0..cell_bounds {
                 for z in 0..cell_bounds {
-                    let mut cell = Cell::new(
+                    cells.push(Cell::new(
                         cgmath::Vector3 {
                             x: x as f32 - cell_bounds as f32 / 2.,
                             y: y as f32 - cell_bounds as f32 / 2.,
                             z: z as f32 - cell_bounds as f32 / 2.,
                         },
                         -1,
-                    );
-                    if x >= cell_bounds / 3
-                        && x <= cell_bounds * 2 / 3
-                        && y >= cell_bounds / 3
-                        && y <= cell_bounds * 2 / 3
-                        && z >= cell_bounds / 3
-                        && z <= cell_bounds * 2 / 3
-                        && ALIVE_CHANCE_ON_START > rng.gen()
-                    {
-                        cell.hp = state as i32;
-                    }
-                    cells.push(cell);
+                    ));
                 }
             }
         }
         return cells;
+    }
+    fn randomize_cells(&mut self) {
+        let mut rng = rand::thread_rng();
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    if x >= self.cell_bounds / 3
+                        && x <= self.cell_bounds * 2 / 3
+                        && y >= self.cell_bounds / 3
+                        && y <= self.cell_bounds * 2 / 3
+                        && z >= self.cell_bounds / 3
+                        && z <= self.cell_bounds * 2 / 3
+                        && ALIVE_CHANCE_ON_START > rng.gen()
+                    {
+                        self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = self.state as i32;
+                    }
+                    else {
+                        self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = -1;
+                    }
+                }
+            }
+        }
     }
     fn count_neighbors(&mut self) {
         for x in 0..self.cell_bounds {
@@ -976,9 +990,50 @@ impl State {
             cell.sync(self.survival, self.spawn, self.state);
         }
     }
-    // fn set_rule_state(&mut self, new_state: u32) {
-    //     self.state = new_state;
-    // }
+    fn update_cell_bounds(&mut self, old_bounds: u32) {
+        // cells2 = createCells();
+        // int start = (cellBounds - oldBounds) / 2;
+        // Vector3Int offset = { start, start, start };
+        // for (int x = 0; x < oldBounds; x++) {
+        //     for (int y = 0; y < oldBounds; y++) {
+        //         for (int z = 0; z < oldBounds; z++) {
+        //             if (validCellIndex(x, y, z, offset)) {
+        //                 size_t oldOneIdx = x * oldBounds * oldBounds + y * oldBounds  + z;
+        //                 cells2[threeToOne(x + offset.x, y + offset.x, z + offset.z)].setHp(cells[oldOneIdx].getHp());
+        //             }
+        //         }
+        //     }
+        // }
+        // cells = vector<Cell>(cells2);
+        let mut new_cells = Self::create_cells(self.cell_bounds);
+        for cell in new_cells.iter_mut() {
+            cell.hp = 0;
+        }
+        let start = (self.cell_bounds as i32 - old_bounds as i32) / 2;
+        let offset = (start, start, start);
+        for x in 0..old_bounds {
+            for y in 0..old_bounds {
+                for z in 0..old_bounds {
+                    if valid_idx(x, y, z, offset, self.cell_bounds) {
+                        let old_idx = three_to_one(x, y, z, old_bounds);
+                        let new_idx = three_to_one(
+                            (x as i32 + offset.0) as u32,
+                            (y as i32 + offset.1) as u32,
+                            (z as i32 + offset.2) as u32,
+                            self.cell_bounds,
+                        );
+                        new_cells[new_idx].hp = self.cells[old_idx].hp;
+                    }
+                }
+            }
+        }
+        self.cells = new_cells;
+    }
+    fn update_state_rule(&mut self, old_state: u32) {
+        for cell in self.cells.iter_mut() {
+            cell.update_state_rule(old_state, self.state);
+        }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -1025,6 +1080,7 @@ pub async fn run() {
     }
 
     let mut state = State::new(&window).await;
+    state.randomize_cells();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -1127,27 +1183,30 @@ pub async fn run() {
                     .parse()
                     .unwrap();
 
-                if last_rule_state != rule_state
-                    || last_rule_survival != rule_survival
-                    || last_rule_spawn != rule_spawn
-                    || last_cell_bounds != cell_bounds
-                    || last_reset_flag != reset_flag
-                {
+                if last_rule_state != rule_state {
                     state.state = rule_state;
+                    state.update_state_rule(last_rule_state);
+                    last_rule_state = rule_state;
+                }
+                if last_rule_survival != rule_survival {
                     for i in 0..26 {
                         state.survival[i] = rule_survival.contains(&(i as u32));
+                    }
+                    last_rule_survival = rule_survival;
+                }
+                if last_rule_spawn != rule_spawn {
+                    for i in 0..26 {
                         state.spawn[i] = rule_spawn.contains(&(i as u32));
                     }
-                    state.cell_bounds = cell_bounds;
-
-                    state.reset();
-
-                    last_rule_survival = rule_survival;
                     last_rule_spawn = rule_spawn;
-                    last_rule_state = rule_state;
-
+                }
+                if last_cell_bounds != cell_bounds {
+                    state.cell_bounds = cell_bounds;
+                    state.update_cell_bounds(last_cell_bounds);
                     last_cell_bounds = cell_bounds;
-                
+                }
+                if last_reset_flag != reset_flag {
+                    state.reset();
                     last_reset_flag = reset_flag;
                 }
             }
