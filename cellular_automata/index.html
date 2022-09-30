@@ -33,7 +33,17 @@
             <br class="spacing" />
 
             <br />
+            
             <button onclick="apply()">Apply</button>
+            
+            <br />
+            <hr />
+
+            <button id="pauseButton" onclick="togglePause()" style="margin-top: 0.5em;">Pause</button>
+            <br />
+
+            <button>Reset</button>
+            <button onclick="apply()">Toggle cross section</button>
         </div>
 
     </div>
@@ -44,6 +54,7 @@
         <input type="hidden" id="spawn_rule_rust" value="4,6,8,9" />
         <input type="hidden" id="state_rule_rust" value="10" />
         <input type="hidden" id="cell_bounds_rust" value="96" />
+        <input type="hidden" id="paused_rust" value="false" />
     </div>
 
   <script type="module">
@@ -54,6 +65,18 @@
     });
   </script>
   <script>
+        let paused = false;
+        let crossSection = false;
+        
+        function togglePause() {
+            paused = !paused;
+            if (paused) {
+                document.getElementById("pauseButton").innerHTML = "Resume";
+            } else {
+                document.getElementById("pauseButton").innerHTML = "Pause";
+            }
+            document.getElementById("paused_rust").value = paused;
+        }
         function apply() {
             let stateValue = document.getElementById("state_rule_input").value;
             let stateValueInt = parseInt(stateValue);
@@ -137,6 +160,12 @@
             margin: 0;
             padding: 0;
         }
+        hr {
+            background-color: #ECEFF4;
+            border: none;
+            height: 1px;
+            border-radius: 10px;
+        }
         label {
             color: #ECEFF4;
             height: 1.2em;
@@ -157,7 +186,6 @@
             outline: 2px solid #EBCB8B;
         }
         button {
-            /* font-size: 25px; */
             font-size: 1em;
             border: none;
             padding: 0.2em 2em;
@@ -166,6 +194,7 @@
             cursor: pointer;
             border-radius: 7px;
             width: 100%;
+            margin-bottom: 0.5em;
         }
         #add_canvas_to {
             flex: 3;

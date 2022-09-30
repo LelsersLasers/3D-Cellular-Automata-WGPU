@@ -459,9 +459,7 @@ pub struct State {
     ticks: u64,
     backend: wgpu::Backend,
 
-    p_tk: ToggleKey,
     c_tk: ToggleKey,
-    lmb_tk: ToggleKey,
 
     paused: bool,
     cross_section: bool,
@@ -692,9 +690,7 @@ impl State {
         let delta = 0.2;
         let ticks = 0;
 
-        let p_tk = ToggleKey::new();
         let c_tk = ToggleKey::new();
-        let lmb_tk = ToggleKey::new();
 
         let paused = false;
         let cross_section = false;
@@ -723,9 +719,7 @@ impl State {
             delta,
             ticks,
             backend,
-            p_tk,
             c_tk,
-            lmb_tk,
             paused,
             cross_section,
             scissor_rect,
@@ -785,26 +779,12 @@ impl State {
                             self.camera_staging.camera.update_eye();
                         }
                     }
-                    VirtualKeyCode::P => {
-                        if self.p_tk.down(pressed) {
-                            self.paused = !self.paused;
-                        }
-                    }
                     VirtualKeyCode::C => {
                         if self.c_tk.down(pressed) {
                             self.cross_section = !self.cross_section;
                         }
                     }
                     _ => {}
-                }
-            }
-            &WindowEvent::MouseInput {
-                state,
-                button: MouseButton::Left,
-                ..
-            } => {
-                if self.lmb_tk.down(state == ElementState::Pressed) {
-                    self.paused = !self.paused;
                 }
             }
             _ => {}
@@ -1146,6 +1126,17 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
+                
+                let paused: bool = document
+                    .get_element_by_id("paused_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+
+                state.paused = paused;
 
                 if last_rule_state != rule_state
                     || last_rule_survival != rule_survival
