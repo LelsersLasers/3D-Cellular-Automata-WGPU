@@ -9,23 +9,35 @@
 </head>
 
 <body onresize="resizeCanvas()">
+    <div class="flex-container">
 
-    <div id="add_canvas_to"></div>
-    <div id="settings" hidden>
-        <input type="text" id="survival_rule_input" value="2,6,9" />
-        <br />
+        <div id="add_canvas_to"></div>
 
-        <input type="text" id="spawn_rule_input" value="4,6,8,9" />
-        <br />
+        <div id="settings">
+            <label for="survival_rule_input">Survival:</label>
+            <input type="text" id="survival_rule_input" value="2,6,9" />
+            <br class="spacing" />
 
-        <input type="text" id="state_rule_input" value="10" />
-        <br />
+            <label for="spawn_rule_input">Spawn:</label>
+            <input type="text" id="spawn_rule_input" value="4,6,8,9" />
+            <br class="spacing" />
 
-        <input type="text" id="cell_bounds_input" value="96" />
-        <br />
+            <label for="state_rule_input">State:</label>
+            <input type="text" id="state_rule_input" value="10" />
+            <br class="spacing" />
 
-        <button onclick="apply()">Apply</button>
+            <br />
+
+            <label for="cell_bounds_input">Cell bounds:</label>
+            <input type="text" id="cell_bounds_input" value="96" />
+            <br class="spacing" />
+
+            <br />
+            <button onclick="apply()">Apply</button>
+        </div>
+
     </div>
+
 
     <div id="pass_to_rust" hidden>
         <input type="hidden" id="survival_rule_rust" value="2,6,9" />
@@ -42,17 +54,6 @@
     });
   </script>
   <script>
-        document.addEventListener("keydown", keyDownHandle, false);
-        function keyDownHandle(e) {
-            if (e.key === "o") {
-                toggle_settings();
-            }
-        }
-        function toggle_settings() {
-            document.getElementById("settings").hidden = !document.getElementById("settings").hidden;
-            document.getElementById("add_canvas_to").hidden = !document.getElementById("add_canvas_to").hidden;
-        }
-
         function apply() {
             let stateValue = document.getElementById("state_rule_input").value;
             let stateValueInt = parseInt(stateValue);
@@ -101,13 +102,11 @@
             else {
                 console.log("Do something to indicate that the value is invalid");
             }
-            
-            toggle_settings();
         }
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
             if (canvas) {
-                let maxWidth = window.innerWidth - 4;
+                let maxWidth = (window.innerWidth - 4) * 0.75;
                 let maxHeight = window.innerHeight - 4;
                 let width = Math.min(maxWidth, (maxHeight * 16) / 9);
                 let height = Math.min(maxHeight, (maxWidth * 9) / 16);
@@ -117,42 +116,68 @@
         }
   </script>
   <style>
+        .flex-container {
+            display: flex;
+        }
+        .spacing {
+            content: "";
+            display: block;
+            margin: 0.5em;
+        }
         body {
             margin: 0;
+            padding: 0;
             background-color: #2b313f;
+            font-family:'Courier New';
         }
         div {
             margin: 0;
             padding: 0;
         }
+        label {
+            color: #ECEFF4;
+            height: 30px;
+            font-size: 25px;
+        }
         input {
+            height: 30px;
+            font-size: 22px;
+            padding: 0.8em 0.5em;
+            box-sizing: border-box;
+            border: none;
             background-color: #4C566A;
             color: #ECEFF4;
-            border: 1px solid #BF616A;
-            height: 40px;
-            font-size: 28px;
+            border-radius: 7px;
         }
         input:focus {
-            border: 1px solid #BF616A;
+            outline: 2px solid #EBCB8B;
         }
         button {
-            border: 1px solid #BF616A;
-            height: 40px;
-            font-size: 28px;
+            font-size: 25px;
+            border: none;
+            padding: 0.2em 2em;
             background-color: #4C566A;
             color: #ECEFF4;
+            cursor: pointer;
+            border-radius: 7px;
         }
         #add_canvas_to {
+            flex: 3;
             margin: 0 auto;
             padding: 0;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); 
+            border: 2px solid #EBCB8B;
+        }
+        #settings {
+            padding: 0;
+            padding-top: 20px;
+            padding-left: 20px;
+            flex: 1;
+            margin: 0 auto;
+            border: 2px solid #EBCB8B;
         }
         canvas {
             background-color: #2b313f;
-            border: 2px solid #EBCB8B;
+            outline: none;
             margin: 0 auto;
             padding: 0;
         }
