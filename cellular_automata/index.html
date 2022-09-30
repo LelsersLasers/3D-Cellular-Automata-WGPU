@@ -21,6 +21,9 @@
         <input type="text" id="state_rule_input" value="10" />
         <br />
 
+        <input type="text" id="cell_bounds_input" value="96" />
+        <br />
+
         <button onclick="apply()">Apply</button>
     </div>
 
@@ -28,6 +31,7 @@
         <input type="hidden" id="survival_rule_rust" value="2,6,9" />
         <input type="hidden" id="spawn_rule_rust" value="4,6,8,9" />
         <input type="hidden" id="state_rule_rust" value="10" />
+        <input type="hidden" id="cell_bounds_rust" value="96" />
     </div>
 
   <script type="module">
@@ -88,6 +92,15 @@
             spawnValueStr = spawnValueSplit.join(",");
             document.getElementById("spawn_rule_rust").value = spawnValueStr;
             document.getElementById("spawn_rule_input").value = spawnValueStr;
+
+            let cellBoundsValue = document.getElementById("cell_bounds_input").value;
+            let cellBoundsValueInt = parseInt(cellBoundsValue);
+            if (!isNaN(cellBoundsValue) && cellBoundsValueInt > 0) {
+                document.getElementById("cell_bounds_rust").value = cellBoundsValue;
+            }
+            else {
+                console.log("Do something to indicate that the value is invalid");
+            }
             
             toggle_settings();
         }

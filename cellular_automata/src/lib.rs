@@ -106,7 +106,7 @@ impl Cell {
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-    fn sync(&mut self, survival: [bool; 27], spawn: [bool; 27], state: u32, ) {
+    fn sync(&mut self, survival: [bool; 27], spawn: [bool; 27], state: u32) {
         self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + survival[self.neighbors as usize] as i32) + // alive
             (self.hp < 0) as i32 * (spawn[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
@@ -480,12 +480,14 @@ impl State {
     async fn new(window: &Window) -> Self {
         let state = 10;
         let survival = [
-            false, false, true, false, false, false, true, false, false, true, false, false, false, false,
-            false, false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, true, false, false, false, true, false, false, true, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false,
         ];
         let spawn = [
-            false, false, false, false, true, false, true, false, true, true, false, false, false, false,
-            false, false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false, false, false, true, false, true, false, true, true, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false,
         ];
         let cell_bounds = 96;
 
@@ -893,8 +895,11 @@ impl State {
                 spawn_text.push_str(",");
             }
             // TODO: not do last comma
-        } 
-        let rules_str = format!("Rule: {} / {} / {} / Moore\n", survival_text, spawn_text, self.state);
+        }
+        let rules_str = format!(
+            "Rule: {} / {} / {} / Moore\n",
+            survival_text, spawn_text, self.state
+        );
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
         let bounds_str = format!("Cell bounds: {}\n", self.cell_bounds);
@@ -1009,7 +1014,7 @@ impl State {
                                 (x as i32 + offset.0) as u32,
                                 (y as i32 + offset.1) as u32,
                                 (z as i32 + offset.2) as u32,
-                                self.cell_bounds
+                                self.cell_bounds,
                             )]
                             .get_alive(self.state)
                             {
@@ -1053,6 +1058,7 @@ pub async fn run() {
     let mut last_rule_survival: Vec<u32> = vec![2, 6, 9];
     let mut last_rule_spawn: Vec<u32> = vec![4, 6, 8, 9];
     let mut last_rule_state: u32 = 10;
+    let mut last_cell_bounds: u32 = 96;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -1135,6 +1141,14 @@ pub async fn run() {
                     .iter()
                     .map(|x| x.parse::<u32>().unwrap())
                     .collect();
+                let cell_bounds: u32 = document
+                    .get_element_by_id("cell_bounds_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
 
                 let settings_hidden = document
                     .get_element_by_id("settings")
@@ -1144,18 +1158,24 @@ pub async fn run() {
                     .hidden();
                 state.can_run = settings_hidden;
 
-                if last_rule_state != rule_state || last_rule_survival != rule_survival || last_rule_spawn != rule_spawn {
+                if last_rule_state != rule_state
+                    || last_rule_survival != rule_survival
+                    || last_rule_spawn != rule_spawn
+                    || last_cell_bounds != cell_bounds
+                {
                     state.state = rule_state;
                     for i in 0..26 {
                         state.survival[i] = rule_survival.contains(&(i as u32));
                         state.spawn[i] = rule_spawn.contains(&(i as u32));
                     }
+                    state.cell_bounds = cell_bounds;
 
                     state.reset();
-                    
+
                     last_rule_survival = rule_survival;
                     last_rule_spawn = rule_spawn;
                     last_rule_state = rule_state;
+                    last_cell_bounds = cell_bounds;
                 }
             }
             match state.render() {
