@@ -12,7 +12,10 @@
 
     <div id="add_canvas_to"></div>
     <div id="settings" hidden>
-        <input type="text" id="survive_rule_input" value="2,6,9" />
+        <input type="text" id="survival_rule_input" value="2,6,9" />
+        <br />
+
+        <input type="text" id="spawn_rule_input" value="4,6,8,9" />
         <br />
 
         <input type="text" id="state_rule_input" value="10" />
@@ -22,7 +25,8 @@
     </div>
 
     <div id="pass_to_rust" hidden>
-        <input type="hidden" id="survive_rule_rust" value="2,6,9" />
+        <input type="hidden" id="survival_rule_rust" value="2,6,9" />
+        <input type="hidden" id="spawn_rule_rust" value="4,6,8,9" />
         <input type="hidden" id="state_rule_rust" value="10" />
     </div>
 
@@ -55,7 +59,7 @@
                 console.log("Do something to indicate that the value is invalid");
             }
 
-            let survivalValue = document.getElementById("survive_rule_input").value;
+            let survivalValue = document.getElementById("survival_rule_input").value;
             let survivalValueTrimmed = survivalValue.replace(/\s/g, '');
             let survivalValueSplit = survivalValueTrimmed.split(",");
             for (let i = 0; i < survivalValueSplit.length; i++) {
@@ -67,8 +71,23 @@
             }
             survivalValueSplit.sort();
             survivalValueStr = survivalValueSplit.join(",");
-            document.getElementById("survive_rule_rust").value = survivalValueStr;
-            document.getElementById("survive_rule_input").value = survivalValueStr;
+            document.getElementById("survival_rule_rust").value = survivalValueStr;
+            document.getElementById("survival_rule_input").value = survivalValueStr;
+
+            let spawnValue = document.getElementById("spawn_rule_input").value;
+            let spawnValueTrimmed = spawnValue.replace(/\s/g, '');
+            let spawnValueSplit = spawnValueTrimmed.split(",");
+            for (let i = 0; i < spawnValueSplit.length; i++) {
+                let spawnValueSplitInt = parseInt(spawnValueSplit[i]);
+                if (isNaN(spawnValueSplitInt) || spawnValueSplitInt < 0 || spawnValueSplitInt > 26) {
+                    console.log("Do something to indicate that the value is invalid");
+                }
+                spawnValueSplit[i] = spawnValueSplitInt;
+            }
+            spawnValueSplit.sort();
+            spawnValueStr = spawnValueSplit.join(",");
+            document.getElementById("spawn_rule_rust").value = spawnValueStr;
+            document.getElementById("spawn_rule_input").value = spawnValueStr;
             
             toggle_settings();
         }

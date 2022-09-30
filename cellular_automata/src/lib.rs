@@ -886,13 +886,19 @@ impl State {
         }
 
         let mut survival_text = String::from("");
+        let mut spawn_text = String::from("");
         for i in 0..26 {
             if self.survival[i] {
                 survival_text.push_str(&i.to_string());
                 survival_text.push_str(",");
             }
+            if self.spawn[i] {
+                spawn_text.push_str(&i.to_string());
+                spawn_text.push_str(",");
+            }
+            // TODO: not do last comma
         } 
-        let rules_str = format!("Rule: {} / 4,6,8,9 / {} / Moore\n", survival_text, self.state);
+        let rules_str = format!("Rule: {} / {} / {} / Moore\n", survival_text, spawn_text, self.state);
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
         let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
@@ -1048,6 +1054,7 @@ pub async fn run() {
         .unwrap();
 
     let mut last_rule_survival: Vec<u32> = vec![2, 6, 9];
+    let mut last_rule_spawn: Vec<u32> = vec![4, 6, 8, 9];
     let mut last_rule_state: u32 = 10;
 
     #[cfg(target_arch = "wasm32")]
@@ -1110,7 +1117,18 @@ pub async fn run() {
                     .parse()
                     .unwrap();
                 let rule_survival: Vec<u32> = document
-                    .get_element_by_id("survive_rule_rust")
+                    .get_element_by_id("survival_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let rule_spawn: Vec<u32> = document
+                    .get_element_by_id("spawn_rule_rust")
                     .unwrap()
                     .dyn_into::<web_sys::HtmlInputElement>()
                     .unwrap()
@@ -1129,16 +1147,18 @@ pub async fn run() {
                     .hidden();
                 state.can_run = settings_hidden;
 
-                if last_rule_state != rule_state || last_rule_survival != rule_survival {
+                if last_rule_state != rule_state || last_rule_survival != rule_survival || last_rule_spawn != rule_spawn {
                     state.state = rule_state;
                     for i in 0..26 {
                         state.survival[i] = rule_survival.contains(&(i as u32));
+                        state.spawn[i] = rule_spawn.contains(&(i as u32));
                     }
 
                     state.reset();
                     
-                    last_rule_state = rule_state;
                     last_rule_survival = rule_survival;
+                    last_rule_spawn = rule_spawn;
+                    last_rule_state = rule_state;
                 }
             }
             match state.render() {
