@@ -4,6 +4,10 @@
     - Pause, reset, show half, toggle left bar, *show 7/8s*,  buttons
     - Side panel layout for settings
         - Labels, look nice
+        - Dynamic CSS
+            - Centered
+            - Font sizes change
+            - Etc
 - Options:
     - Colors
     - M vs VN

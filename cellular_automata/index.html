@@ -9,7 +9,7 @@
 </head>
 
 <body onresize="resizeCanvas()">
-    <div class="flex-container">
+    <div id="main_stuff" class="flex-container">
 
         <div id="add_canvas_to"></div>
 
@@ -112,6 +112,7 @@
                 let height = Math.min(maxHeight, (maxWidth * 9) / 16);
                 canvas.style.width = width + "px";
                 canvas.style.height = height + "px";
+                console.log("Winwdow size:", window.innerWidth, window.innerHeight);
             }
         }
   </script>
@@ -124,11 +125,13 @@
             display: block;
             margin: 0.5em;
         }
+        html {
+            font-family:'Courier New';
+        }
         body {
             margin: 0;
             padding: 0;
             background-color: #2b313f;
-            font-family:'Courier New';
         }
         div {
             margin: 0;
@@ -160,6 +163,7 @@
             color: #ECEFF4;
             cursor: pointer;
             border-radius: 7px;
+            width: 100%;
         }
         #add_canvas_to {
             flex: 3;
@@ -167,10 +171,16 @@
             padding: 0;
             border: 2px solid #EBCB8B;
         }
+        #main_stuff {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); 
+            width: 100%;
+        }
         #settings {
             padding: 0;
-            padding-top: 20px;
-            padding-left: 20px;
+            padding: 20px;
             flex: 1;
             margin: 0 auto;
             border: 2px solid #EBCB8B;
