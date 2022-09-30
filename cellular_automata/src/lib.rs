@@ -222,13 +222,6 @@ const INDICES: &[u16] = &[
     2, 1, 7, 5, 2, 7, // bottom face
 ];
 
-const CELL_BOUNDS: u32 = 96;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    CELL_BOUNDS as f32 * 0.5,
-    CELL_BOUNDS as f32 * 0.5,
-    CELL_BOUNDS as f32 * 0.5,
-);
-
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
@@ -273,18 +266,18 @@ const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
     (-1, -1, -1),
 ];
 
-fn three_to_one(x: u32, y: u32, z: u32) -> usize {
+fn three_to_one(x: u32, y: u32, z: u32, cell_bounds: u32) -> usize {
     z as usize
-        + y as usize * CELL_BOUNDS as usize
-        + x as usize * CELL_BOUNDS as usize * CELL_BOUNDS as usize
+        + y as usize * cell_bounds as usize
+        + x as usize * cell_bounds as usize * cell_bounds as usize
 }
-fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32)) -> bool {
+fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32), cell_bounds: u32) -> bool {
     x as i32 + offset.0 >= 0
-        && x as i32 + offset.0 < CELL_BOUNDS as i32
+        && x as i32 + offset.0 < cell_bounds as i32
         && y as i32 + offset.1 >= 0
-        && y as i32 + offset.1 < CELL_BOUNDS as i32
+        && y as i32 + offset.1 < cell_bounds as i32
         && z as i32 + offset.2 >= 0
-        && z as i32 + offset.2 < CELL_BOUNDS as i32
+        && z as i32 + offset.2 < cell_bounds as i32
 }
 fn rgb_to_srgb(rgb: f32) -> f32 {
     (rgb as f32 / 255.).powf(2.2)
@@ -478,6 +471,7 @@ pub struct State {
 
     cells: Vec<Cell>,
 
+    cell_bounds: u32,
     state: u32,
     survival: [bool; 27],
     spawn: [bool; 27],
@@ -493,6 +487,7 @@ impl State {
             false, false, false, false, true, false, true, false, true, true, false, false, false, false,
             false, false, false, false, false, false, false, false, false, false, false, false, false,
         ];
+        let cell_bounds = 96;
 
         let size = window.inner_size();
 
@@ -562,12 +557,12 @@ impl State {
             aspect: size.width as f32 / size.height as f32,
             fovy: 45.,
             znear: 0.01,
-            zfar: CELL_BOUNDS as f32 * 5.,
+            zfar: cell_bounds as f32 * 5.,
             lat: 0.35,
             lon: 0.35,
-            radius: CELL_BOUNDS as f64 * 2.5,
+            radius: cell_bounds as f64 * 2.5,
             turn_speed: std::f64::consts::PI / 4.,
-            zoom_speed: CELL_BOUNDS as f64 / 4.,
+            zoom_speed: cell_bounds as f64 / 4.,
             up_down: false,
             down_down: false,
             left_down: false,
@@ -677,7 +672,7 @@ impl State {
         let num_indices = INDICES.len() as u32;
 
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
-        let cells: Vec<Cell> = Self::create_cells(state);
+        let cells: Vec<Cell> = Self::create_cells(state, cell_bounds);
         for cell in cells.iter() {
             instance_data.push(cell.create_instance(state).to_raw());
         }
@@ -735,6 +730,7 @@ impl State {
             can_run,
             cross_section,
             scissor_rect,
+            cell_bounds,
             cells,
             survival,
             spawn,
@@ -786,7 +782,7 @@ impl State {
                         if pressed {
                             self.camera_staging.camera.lat = 0.35;
                             self.camera_staging.camera.lon = 0.35;
-                            self.camera_staging.camera.radius = CELL_BOUNDS as f64 * 2.5;
+                            self.camera_staging.camera.radius = self.cell_bounds as f64 * 2.5;
                             self.camera_staging.camera.update_eye();
                         }
                     }
@@ -901,7 +897,7 @@ impl State {
         let rules_str = format!("Rule: {} / {} / {} / Moore\n", survival_text, spawn_text, self.state);
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
-        let bounds_str = format!("Cell bounds: {}\n", CELL_BOUNDS);
+        let bounds_str = format!("Cell bounds: {}\n", self.cell_bounds);
         let backend_str = format!("Backend: {:?}\n", self.backend);
         let font_size = self.scissor_rect.2 as f32 / 75.;
 
@@ -968,29 +964,29 @@ impl State {
         }
     }
     fn reset(&mut self) {
-        self.cells = Self::create_cells(self.state);
+        self.cells = Self::create_cells(self.state, self.cell_bounds);
         self.ticks = 0;
     }
-    fn create_cells(state: u32) -> Vec<Cell> {
+    fn create_cells(state: u32, cell_bounds: u32) -> Vec<Cell> {
         let mut rng = rand::thread_rng();
         let mut cells = Vec::new();
-        for x in 0..CELL_BOUNDS {
-            for y in 0..CELL_BOUNDS {
-                for z in 0..CELL_BOUNDS {
+        for x in 0..cell_bounds {
+            for y in 0..cell_bounds {
+                for z in 0..cell_bounds {
                     let mut cell = Cell::new(
                         cgmath::Vector3 {
-                            x: x as f32,
-                            y: y as f32,
-                            z: z as f32,
-                        } - INSTANCE_DISPLACEMENT,
+                            x: x as f32 - cell_bounds as f32 / 2.,
+                            y: y as f32 - cell_bounds as f32 / 2.,
+                            z: z as f32 - cell_bounds as f32 / 2.,
+                        },
                         -1,
                     );
-                    if x >= CELL_BOUNDS / 3
-                        && x <= CELL_BOUNDS * 2 / 3
-                        && y >= CELL_BOUNDS / 3
-                        && y <= CELL_BOUNDS * 2 / 3
-                        && z >= CELL_BOUNDS / 3
-                        && z <= CELL_BOUNDS * 2 / 3
+                    if x >= cell_bounds / 3
+                        && x <= cell_bounds * 2 / 3
+                        && y >= cell_bounds / 3
+                        && y <= cell_bounds * 2 / 3
+                        && z >= cell_bounds / 3
+                        && z <= cell_bounds * 2 / 3
                         && ALIVE_CHANCE_ON_START < rng.gen()
                     {
                         cell.hp = state as i32;
@@ -1002,17 +998,18 @@ impl State {
         return cells;
     }
     fn count_neighbors(&mut self) {
-        for x in 0..CELL_BOUNDS {
-            for y in 0..CELL_BOUNDS {
-                for z in 0..CELL_BOUNDS {
-                    let one_idx = three_to_one(x, y, z);
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    let one_idx = three_to_one(x, y, z, self.cell_bounds);
                     self.cells[one_idx].neighbors = 0;
                     for offset in NEIGHBOR_OFFSETS.iter() {
-                        if valid_idx(x, y, z, *offset) {
+                        if valid_idx(x, y, z, *offset, self.cell_bounds) {
                             if self.cells[three_to_one(
                                 (x as i32 + offset.0) as u32,
                                 (y as i32 + offset.1) as u32,
                                 (z as i32 + offset.2) as u32,
+                                self.cell_bounds
                             )]
                             .get_alive(self.state)
                             {
