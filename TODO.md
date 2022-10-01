@@ -8,6 +8,7 @@
             - Centered
             - Font sizes change
             - Etc
+- Restore last applied rules from local storage
 - Options:
     - Colors
     - M vs VN

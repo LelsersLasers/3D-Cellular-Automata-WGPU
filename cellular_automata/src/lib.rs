@@ -94,8 +94,9 @@ impl Cell {
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
     fn update_state_rule(&mut self, old_state: u32, new_state: u32) {
-        self.hp = (self.hp < 0) as i32 * -1 +
-            (self.hp >= 0) as i32 * (self.hp as f32 * (new_state as f32/old_state as f32)) as i32;
+        self.hp = (self.hp < 0) as i32 * -1
+            + (self.hp >= 0) as i32
+                * (self.hp as f32 * (new_state as f32 / old_state as f32)) as i32;
     }
 }
 
@@ -223,7 +224,7 @@ const ALIVE_COLOR: [f32; 3] = [0.529523, 0.119264, 0.144972];
 const DEAD_COLOR: [u8; 3] = [76, 86, 106];
 const DYING_COLOR: [u8; 3] = [216, 222, 233];
 const TEXT_COLOR: [f32; 4] = [0.84337, 0.867136, 0.907547, 1.];
-const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
+const M_OFFSETS: [(i32, i32, i32); 26] = [
     (1, 0, 0),
     (-1, 0, 0),
     (0, 1, 0),
@@ -250,6 +251,14 @@ const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
     (-1, 1, -1),
     (1, -1, -1),
     (-1, -1, -1),
+];
+const VN_OFFSETS: [(i32, i32, i32); 6] = [
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+    (0, 0, 1),
+    (0, 0, -1),
 ];
 
 fn three_to_one(x: u32, y: u32, z: u32, cell_bounds: u32) -> usize {
@@ -456,6 +465,7 @@ pub struct State {
     state: u32,
     survival: [bool; 27],
     spawn: [bool; 27],
+    moore_offsets: bool,
 }
 impl State {
     async fn new(window: &Window) -> Self {
@@ -470,6 +480,7 @@ impl State {
             false, false, false, false, false, false, false, false, false, false, false, false,
             false, false,
         ];
+        let moore_offsets = true;
         let cell_bounds = 96;
 
         let size = window.inner_size();
@@ -709,6 +720,7 @@ impl State {
             survival,
             spawn,
             state,
+            moore_offsets,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -764,7 +776,11 @@ impl State {
     }
     fn update(&mut self) {
         if !self.paused {
-            self.count_neighbors();
+            self.count_neighbors(if self.moore_offsets {
+                &M_OFFSETS
+            } else {
+                &VN_OFFSETS
+            });
             self.sync_cells();
             self.ticks += 1;
         }
@@ -844,9 +860,14 @@ impl State {
             }
             // TODO: not do last comma
         }
+        let neighborhood_text = if self.moore_offsets {
+            "Moore"
+        } else {
+            "Von Neumann"
+        };
         let rules_str = format!(
-            "Rule: {} / {} / {} / Moore\n",
-            survival_text, spawn_text, self.state
+            "Rule: {} / {} / {} / {}\n",
+            survival_text, spawn_text, self.state, neighborhood_text
         );
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
@@ -952,21 +973,20 @@ impl State {
                         && ALIVE_CHANCE_ON_START > rng.gen()
                     {
                         self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = self.state as i32;
-                    }
-                    else {
+                    } else {
                         self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = -1;
                     }
                 }
             }
         }
     }
-    fn count_neighbors(&mut self) {
+    fn count_neighbors(&mut self, offsets: &[(i32, i32, i32)]) {
         for x in 0..self.cell_bounds {
             for y in 0..self.cell_bounds {
                 for z in 0..self.cell_bounds {
                     let one_idx = three_to_one(x, y, z, self.cell_bounds);
                     self.cells[one_idx].neighbors = 0;
-                    for offset in NEIGHBOR_OFFSETS.iter() {
+                    for offset in offsets {
                         if valid_idx(x, y, z, *offset, self.cell_bounds) {
                             if self.cells[three_to_one(
                                 (x as i32 + offset.0) as u32,
@@ -1136,6 +1156,16 @@ pub async fn run() {
                     .value()
                     .parse()
                     .unwrap();
+
+                let rule_neighborhood: bool = document
+                    .get_element_by_id("neighborhood_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.moore_offsets = rule_neighborhood;
 
                 let paused: bool = document
                     .get_element_by_id("paused_rust")
