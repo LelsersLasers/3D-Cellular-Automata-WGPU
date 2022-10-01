@@ -95,23 +95,16 @@
             resetFlag = !resetFlag;
             document.getElementById("reset_cells_rust").value = resetFlag;
         }
-        function apply() {
-            let stateValue = document.getElementById("state_rule_input").value;
-            let stateValueInt = parseInt(stateValue);
-            if (!isNaN(stateValue) && stateValueInt > 0) {
-                document.getElementById("state_rule_rust").value = stateValue;
-            }
-            else {
-                console.log("Do something to indicate that the value is invalid");
-            }
-
+        function applySurvivalRule() {
             let survivalValue = document.getElementById("survival_rule_input").value;
             let survivalValueTrimmed = survivalValue.replace(/\s/g, '');
             let survivalValueSplit = survivalValueTrimmed.split(",");
             for (let i = 0; i < survivalValueSplit.length; i++) {
                 let survivalValueSplitInt = parseInt(survivalValueSplit[i]);
-                if (isNaN(survivalValueSplitInt) || survivalValueSplitInt < 0 || survivalValueSplitInt > 26) {
-                    console.log("Do something to indicate that the value is invalid");
+                if (isNaN(survivalValueSplitInt) || survivalValueSplitInt < 0) {
+                    document.getElementById("survival_rule_input").style.border = "2px solid #BF616A";
+                    alert("Survival must be a list of positive integers seperated by commas (ex: '2,6,9')");
+                    return;
                 }
                 survivalValueSplit[i] = survivalValueSplitInt;
             }
@@ -119,14 +112,18 @@
             survivalValueStr = survivalValueSplit.join(",");
             document.getElementById("survival_rule_rust").value = survivalValueStr;
             document.getElementById("survival_rule_input").value = survivalValueStr;
-
+            document.getElementById("survival_rule_input").style.border = "none";
+        }
+        function applySpawnRule() {
             let spawnValue = document.getElementById("spawn_rule_input").value;
             let spawnValueTrimmed = spawnValue.replace(/\s/g, '');
             let spawnValueSplit = spawnValueTrimmed.split(",");
             for (let i = 0; i < spawnValueSplit.length; i++) {
                 let spawnValueSplitInt = parseInt(spawnValueSplit[i]);
-                if (isNaN(spawnValueSplitInt) || spawnValueSplitInt < 0 || spawnValueSplitInt > 26) {
-                    console.log("Do something to indicate that the value is invalid");
+                if (isNaN(spawnValueSplitInt) || spawnValueSplitInt < 0) {
+                    document.getElementById("spawn_rule_input").style.border = "2px solid #BF616A";
+                    alert("Spawn must be a list of positive integers seperated by commas (ex: '4,6,8,9')");
+                    return;
                 }
                 spawnValueSplit[i] = spawnValueSplitInt;
             }
@@ -134,15 +131,39 @@
             spawnValueStr = spawnValueSplit.join(",");
             document.getElementById("spawn_rule_rust").value = spawnValueStr;
             document.getElementById("spawn_rule_input").value = spawnValueStr;
-
-            let cellBoundsValue = document.getElementById("cell_bounds_input").value;
-            let cellBoundsValueInt = parseInt(cellBoundsValue);
-            if (!isNaN(cellBoundsValue) && cellBoundsValueInt > 0) {
-                document.getElementById("cell_bounds_rust").value = cellBoundsValue;
+            document.getElementById("spawn_rule_input").style.border = "none";
+        }
+        function applyStateRule() {
+            let stateValue = document.getElementById("state_rule_input").value;
+            let stateValueInt = parseInt(stateValue);
+            if (isNaN(stateValueInt) || stateValueInt < 0) {
+                document.getElementById("state_rule_input").style.border = "2px solid #BF616A";
+                alert("State must be a positive integer (ex: '10')");
             }
             else {
-                console.log("Do something to indicate that the value is invalid");
+                document.getElementById("state_rule_input").value = stateValueInt;
+                document.getElementById("state_rule_rust").value = stateValueInt;
+                document.getElementById("state_rule_input").style.border = "none";
             }
+        }
+        function applyCellBounds() {
+            let cellBoundsValue = document.getElementById("cell_bounds_input").value;
+            let cellBoundsValueInt = parseInt(cellBoundsValue);
+            if (isNaN(cellBoundsValueInt) || cellBoundsValueInt < 0) {
+                document.getElementById("cell_bounds_input").style.border = "2px solid #BF616A";
+                alert("Cell bounds must be a positive integer (ex: '96')");
+            }
+            else {
+                document.getElementById("cell_bounds_input").value = cellBoundsValueInt;
+                document.getElementById("cell_bounds_rust").value = cellBoundsValueInt;
+                document.getElementById("cell_bounds_input").style.border = "none";
+            }
+        }
+        function apply() {
+            applySurvivalRule();
+            applySpawnRule();
+            applyStateRule();
+            applyCellBounds();
         }
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
@@ -194,14 +215,15 @@
             font-size: 1em;
             padding: 0.8em 0.5em;
             box-sizing: border-box;
-            border: none;
             background-color: #4C566A;
             color: #ECEFF4;
             border-radius: 7px;
             width: 100%;
+            border: none;
+            outline: none !important;
         }
         input:focus {
-            outline: 2px solid #EBCB8B;
+            outline: 2px solid #EBCB8B !important;
         }
         button {
             font-size: 1em;
