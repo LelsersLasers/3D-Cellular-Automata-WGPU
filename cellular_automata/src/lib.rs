@@ -1010,6 +1010,7 @@ impl State {
             }
         }
         self.cells = new_cells;
+        self.camera_staging.camera.radius *= self.cell_bounds as f64 / old_bounds as f64;
     }
     fn update_state_rule(&mut self, old_state: u32) {
         for cell in self.cells.iter_mut() {
