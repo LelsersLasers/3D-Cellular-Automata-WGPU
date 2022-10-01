@@ -94,9 +94,8 @@ impl Cell {
             (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
     fn update_state_rule(&mut self, old_state: u32, new_state: u32) {
-        self.hp = (self.hp < 0) as i32 * -1 + // stay dead
-            (self.hp >= 0) as i32 * (self.hp * (new_state as f32/old_state as f32) as i32);
-        // scale hp
+        self.hp = (self.hp < 0) as i32 * -1 +
+            (self.hp >= 0) as i32 * (self.hp as f32 * (new_state as f32/old_state as f32)) as i32;
     }
 }
 
@@ -991,24 +990,7 @@ impl State {
         }
     }
     fn update_cell_bounds(&mut self, old_bounds: u32) {
-        // cells2 = createCells();
-        // int start = (cellBounds - oldBounds) / 2;
-        // Vector3Int offset = { start, start, start };
-        // for (int x = 0; x < oldBounds; x++) {
-        //     for (int y = 0; y < oldBounds; y++) {
-        //         for (int z = 0; z < oldBounds; z++) {
-        //             if (validCellIndex(x, y, z, offset)) {
-        //                 size_t oldOneIdx = x * oldBounds * oldBounds + y * oldBounds  + z;
-        //                 cells2[threeToOne(x + offset.x, y + offset.x, z + offset.z)].setHp(cells[oldOneIdx].getHp());
-        //             }
-        //         }
-        //     }
-        // }
-        // cells = vector<Cell>(cells2);
         let mut new_cells = Self::create_cells(self.cell_bounds);
-        for cell in new_cells.iter_mut() {
-            cell.hp = 0;
-        }
         let start = (self.cell_bounds as i32 - old_bounds as i32) / 2;
         let offset = (start, start, start);
         for x in 0..old_bounds {
