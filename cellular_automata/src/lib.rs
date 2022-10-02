@@ -58,28 +58,10 @@ impl Cell {
             neighbors: 0,
         }
     }
-    fn get_color(&self, state: u32) -> [f32; 3] {
-        if self.hp == state as i32 {
-            ALIVE_COLOR
-        } else {
-            let intensity = (1. + self.hp as f32) / (state as f32);
-            [
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[0] - DEAD_COLOR[0]) as f32 + DEAD_COLOR[0] as f32,
-                ),
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[1] - DEAD_COLOR[1]) as f32 + DEAD_COLOR[1] as f32,
-                ),
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[2] - DEAD_COLOR[2]) as f32 + DEAD_COLOR[2] as f32,
-                ),
-            ]
-        }
-    }
-    fn create_instance(&self, state: u32) -> Instance {
+    fn create_instance_state_based(&self, colors: &[[f32; 3]]) -> Instance {
         Instance {
             position: self.position,
-            color: self.get_color(state),
+            color: colors[self.hp as usize],
         }
     }
     fn get_alive(&self, state: u32) -> bool {
@@ -98,6 +80,77 @@ impl Cell {
             + (self.hp >= 0) as i32
                 * (self.hp as f32 * (new_state as f32 / old_state as f32)) as i32;
     }
+}
+
+#[derive(Clone, Copy)]
+enum StateBased {
+    DualColor([u32; 3], [u32; 3]),
+    DualColorDying([u32; 3]),
+    SingleColor([u32; 3]),
+}
+impl StateBased {
+    fn create_colors(&self, state_rule: u32) -> Vec<[f32; 3]>  {
+        let mut colors: Vec<[f32; 3]> = Vec::new();
+        for i in 0..state_rule {
+            colors.push(
+                match self {
+                    StateBased::DualColor(start_color, end_color) => [
+                        rgb_to_srgb(start_color[0] as f32 + (start_color[0] - end_color[0]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
+                        rgb_to_srgb(start_color[1] as f32 + (start_color[1] - end_color[1]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
+                        rgb_to_srgb(start_color[2] as f32 + (start_color[2] - end_color[2]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
+                    ],
+                    StateBased::DualColorDying(_alive_color) => {
+                        let intensity = (i + 2) as f32 / (state_rule + 3) as f32;
+                        let brightness = intensity * 255.;
+                        [
+                            rgb_to_srgb(brightness),
+                            rgb_to_srgb(brightness),
+                            rgb_to_srgb(brightness),
+                        ]
+                    },
+                    StateBased::SingleColor(start_color) => {
+                        let intensity = 3./(state_rule + 3) as f32 + i as f32/(state_rule + 3) as f32;
+                        [
+                            rgb_to_srgb(intensity * start_color[0] as f32),
+                            rgb_to_srgb(intensity * start_color[1] as f32),
+                            rgb_to_srgb(intensity * start_color[2] as f32),
+                        ]
+                    },
+                }
+            );   
+        }
+        colors.push(
+            match self {
+                StateBased::DualColor(start_color, _end_color) => [
+                    rgb_to_srgb(start_color[0] as f32),
+                    rgb_to_srgb(start_color[1] as f32),
+                    rgb_to_srgb(start_color[2] as f32),
+                ],
+                StateBased::DualColorDying(alive_color) => [
+                    rgb_to_srgb(alive_color[0] as f32),
+                    rgb_to_srgb(alive_color[1] as f32),
+                    rgb_to_srgb(alive_color[2] as f32),
+                ],
+                StateBased::SingleColor(start_color) => [
+                    rgb_to_srgb(start_color[0] as f32),
+                    rgb_to_srgb(start_color[1] as f32),
+                    rgb_to_srgb(start_color[2] as f32),
+                ],
+            }
+        );
+
+
+        colors
+    }
+}
+enum PositionBased {
+    RgbCube(),
+    CenterDist([u32; 3])
+}
+
+enum DrawMode {
+    StateBased(StateBased),
+    PositionBased(PositionBased),
 }
 
 #[derive(Clone, Copy)]
@@ -121,6 +174,12 @@ struct InstanceRaw {
     color: [f32; 3],
 }
 impl InstanceRaw {
+    fn default() -> Self {
+        Self {
+            model: cgmath::Matrix4::identity().into(),
+            color: [0., 0., 0.],
+        }
+    }
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
@@ -220,9 +279,6 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     b: 0.047776,
     a: 1.,
 };
-const ALIVE_COLOR: [f32; 3] = [0.529523, 0.119264, 0.144972];
-const DEAD_COLOR: [u8; 3] = [76, 86, 106];
-const DYING_COLOR: [u8; 3] = [216, 222, 233];
 const TEXT_COLOR: [f32; 4] = [0.84337, 0.867136, 0.907547, 1.];
 const M_OFFSETS: [(i32, i32, i32); 26] = [
     (1, 0, 0),
@@ -275,7 +331,7 @@ fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32), cell_bounds: u32) 
         && z as i32 + offset.2 < cell_bounds as i32
 }
 fn rgb_to_srgb(rgb: f32) -> f32 {
-    (rgb as f32 / 255.).powf(2.2)
+    (rgb / 255.).powf(2.2)
 }
 
 struct Camera {
@@ -461,11 +517,16 @@ pub struct State {
 
     cells: Vec<Cell>,
 
-    cell_bounds: u32,
     state: u32,
     survival: [bool; 27],
     spawn: [bool; 27],
     moore_offsets: bool,
+
+    cell_bounds: u32,
+    
+    draw_mode: DrawMode,
+
+    state_colors: Vec<[f32; 3]>,
 }
 impl State {
     async fn new(window: &Window) -> Self {
@@ -482,6 +543,11 @@ impl State {
         ];
         let moore_offsets = true;
         let cell_bounds = 96;
+
+        let state_based = StateBased::DualColorDying([191, 97, 106]);
+        let draw_mode = DrawMode::StateBased(state_based);
+        let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
+        println!("BBB {:?}", state_colors);
 
         let size = window.inner_size();
 
@@ -666,10 +732,12 @@ impl State {
         let num_indices = INDICES.len() as u32;
 
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
+        println!("CCC");
         let cells: Vec<Cell> = Self::create_cells(cell_bounds);
         for cell in cells.iter() {
-            instance_data.push(cell.create_instance(state).to_raw());
+            instance_data.push(InstanceRaw::default());
         }
+        println!("DDD");
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -689,6 +757,8 @@ impl State {
         let cross_section = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
+
+        println!("AAAA");
 
         Self {
             surface,
@@ -721,6 +791,8 @@ impl State {
             spawn,
             state,
             moore_offsets,
+            draw_mode,
+            state_colors,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -932,8 +1004,7 @@ impl State {
         self.instance_data.clear();
         for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
             if self.cells[i].should_draw() {
-                self.instance_data
-                    .push(self.cells[i].create_instance(self.state).to_raw());
+                self.instance_data.push(self.cells[i].create_instance_state_based(&self.state_colors).to_raw());
             }
         }
     }
