@@ -100,7 +100,7 @@ impl StateBased {
                         rgb_to_srgb(start_color[2] as f32 + (start_color[2] - end_color[2]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
                     ],
                     StateBased::DualColorDying(_alive_color) => {
-                        let intensity = (i + 2) as f32 / (state_rule + 3) as f32;
+                        let intensity = (i + 1) as f32 / (state_rule + 2) as f32;
                         let brightness = intensity * 255.;
                         [
                             rgb_to_srgb(brightness),
@@ -143,9 +143,37 @@ impl StateBased {
         colors
     }
 }
+
 enum PositionBased {
     RgbCube(),
     CenterDist([u32; 3])
+}
+impl PositionBased {
+    fn create_calc(&self) -> Box<dyn Fn(u32, u32, u32, u32) -> [f32; 3]> {        
+        match self {
+            PositionBased::RgbCube() => {
+                Box::new(|x: u32, y: u32, z: u32, cell_bounds: u32| -> [f32; 3] {
+                    [
+                        rgb_to_srgb(x as f32/cell_bounds as f32 * 255.),
+                        rgb_to_srgb(y as f32/cell_bounds as f32 * 255.),
+                        rgb_to_srgb(z as f32/cell_bounds as f32 * 255.),
+                    ]
+                })
+            },
+            PositionBased::CenterDist(start_color) => {
+                Box::new(|x: u32, y: u32, z: u32, cell_bounds: u32| -> [f32; 3] {
+                    let cap = cell_bounds as f32/2.;
+                    let dist = ((x as f32 - cap).powi(2) + (y as f32 - cap).powi(2) + (z as f32 - cap).powi(2)).sqrt();
+                    let intensity = 2./(cap * 3f32.sqrt() + 2.) + dist/(cap * 3f32.sqrt() + 2.);
+                    [
+                        rgb_to_srgb(intensity * start_color[0] as f32),
+                        rgb_to_srgb(intensity * start_color[1] as f32),
+                        rgb_to_srgb(intensity * start_color[2] as f32),
+                    ]
+                })
+            },
+        }
+    }
 }
 
 enum DrawMode {
@@ -544,7 +572,8 @@ impl State {
         let moore_offsets = true;
         let cell_bounds = 96;
 
-        let state_based = StateBased::DualColorDying([191, 97, 106]);
+        // let state_based = StateBased::DualColorDying([191, 97, 106]);
+        let state_based = StateBased::SingleColor([191, 97, 106]);
         let draw_mode = DrawMode::StateBased(state_based);
         let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
         println!("BBB {:?}", state_colors);
@@ -734,7 +763,7 @@ impl State {
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
         println!("CCC");
         let cells: Vec<Cell> = Self::create_cells(cell_bounds);
-        for cell in cells.iter() {
+        for _cell in cells.iter() {
             instance_data.push(InstanceRaw::default());
         }
         println!("DDD");
