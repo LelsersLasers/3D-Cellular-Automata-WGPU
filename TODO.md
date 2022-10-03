@@ -18,3 +18,4 @@
     - Show bad input
 - Improve output in left bar
 - Rgb -> srgb in fragment shader
+- In PositionBased draw modes, don't do vertex darkening

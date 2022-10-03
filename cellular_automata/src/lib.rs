@@ -592,7 +592,8 @@ impl State {
 
         // let state_based = StateBased::DualColorDying([191, 97, 106]);
         let state_based = StateBased::SingleColor([191, 97, 106]);
-        let position_based = PositionBased::RgbCube();
+        //let position_based = PositionBased::CenterDist([50, 200, 125]);
+        let position_based = PositionBased::CenterDist([255, 255, 255]);
         // let draw_mode = DrawMode::StateBased(state_based);
         let draw_mode = DrawMode::PositionBased(position_based);
         let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
@@ -1065,30 +1066,60 @@ impl State {
                     }
                 }
             }
-            DrawMode::PositionBased(_) => {
-                for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
-                    for y in 0..self.cell_bounds {
-                        for z in 0..self.cell_bounds {
-                            let idx = three_to_one(x, y, z, self.cell_bounds);
-                            if self.cells[idx].should_draw() {
-                                self.instance_data.push(
-                                    Instance {
-                                        position: self.cells[idx]
-                                            .position,
-                                        color: (self.pos_calc)(
-                                            x,
-                                            y,
-                                            z,
-                                            self.cell_bounds,
-                                            &[255, 255, 255],
-                                        ),
+            DrawMode::PositionBased(pos_based) => {
+                match pos_based {
+                    PositionBased::RgbCube() => {
+                        for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
+                            for y in 0..self.cell_bounds {
+                                for z in 0..self.cell_bounds {
+                                    let idx = three_to_one(x, y, z, self.cell_bounds);
+                                    if self.cells[idx].should_draw() {
+                                        self.instance_data.push(
+                                            Instance {
+                                                position: self.cells[idx]
+                                                    .position,
+                                                color: (self.pos_calc)(
+                                                    x,
+                                                    y,
+                                                    z,
+                                                    self.cell_bounds,
+                                                    &[0, 0, 0], // not used
+                                                ),
+                                            }
+                                            .to_raw(),
+                                        );
                                     }
-                                    .to_raw(),
-                                );
+                                }
+                            }
+                        }
+                    },
+                    PositionBased::CenterDist(start_color) => {
+                        for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
+                            for y in 0..self.cell_bounds {
+                                for z in 0..self.cell_bounds {
+                                    let idx = three_to_one(x, y, z, self.cell_bounds);
+                                    if self.cells[idx].should_draw() {
+                                        self.instance_data.push(
+                                            Instance {
+                                                position: self.cells[idx]
+                                                    .position,
+                                                color: (self.pos_calc)(
+                                                    x,
+                                                    y,
+                                                    z,
+                                                    self.cell_bounds,
+                                                    &start_color,
+                                                ),
+                                            }
+                                            .to_raw(),
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
                 }
+                
             }
         };
     }
