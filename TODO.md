@@ -1,7 +1,7 @@
 # TODO
 
 - Improve html layout
-    - Pause, reset, show half, toggle left bar, *show 7/8s*,  buttons
+    - show half, toggle left bar, *show 7/8s*
     - Side panel layout for settings
         - Labels, look nice
         - Dynamic CSS
@@ -11,12 +11,10 @@
 - Restore last applied rules from local storage
 - Options:
     - Colors
-    - M vs VN
     - Speed
         - Tick modes?
-    - "Wrap" mode
+    - "Wrap" mode?
 - Input check
     - Show bad input
-- On apply: update simulation (not reset)
-    - Move camera out
 - Improve output in left bar
+- Rgb -> srgb in fragment shader

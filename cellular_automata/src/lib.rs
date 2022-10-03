@@ -64,6 +64,11 @@ impl Cell {
             color: colors[self.hp as usize],
         }
     }
+    // fn create_instance_pos_based(&self, calc: Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]>) -> Instance{
+    //     Instance {
+    //         position:
+    //     }
+    // }
     fn get_alive(&self, state: u32) -> bool {
         self.hp == state as i32
     }
@@ -89,89 +94,101 @@ enum StateBased {
     SingleColor([u32; 3]),
 }
 impl StateBased {
-    fn create_colors(&self, state_rule: u32) -> Vec<[f32; 3]>  {
+    fn create_colors(&self, state_rule: u32) -> Vec<[f32; 3]> {
         let mut colors: Vec<[f32; 3]> = Vec::new();
         for i in 0..state_rule {
-            colors.push(
-                match self {
-                    StateBased::DualColor(start_color, end_color) => [
-                        rgb_to_srgb(start_color[0] as f32 + (start_color[0] - end_color[0]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
-                        rgb_to_srgb(start_color[1] as f32 + (start_color[1] - end_color[1]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
-                        rgb_to_srgb(start_color[2] as f32 + (start_color[2] - end_color[2]) as f32/(state_rule + 1) as f32 * (i + 1) as f32),
-                    ],
-                    StateBased::DualColorDying(_alive_color) => {
-                        let intensity = (i + 1) as f32 / (state_rule + 2) as f32;
-                        let brightness = intensity * 255.;
-                        [
-                            rgb_to_srgb(brightness),
-                            rgb_to_srgb(brightness),
-                            rgb_to_srgb(brightness),
-                        ]
-                    },
-                    StateBased::SingleColor(start_color) => {
-                        let intensity = 3./(state_rule + 3) as f32 + i as f32/(state_rule + 3) as f32;
-                        [
-                            rgb_to_srgb(intensity * start_color[0] as f32),
-                            rgb_to_srgb(intensity * start_color[1] as f32),
-                            rgb_to_srgb(intensity * start_color[2] as f32),
-                        ]
-                    },
-                }
-            );   
-        }
-        colors.push(
-            match self {
-                StateBased::DualColor(start_color, _end_color) => [
-                    rgb_to_srgb(start_color[0] as f32),
-                    rgb_to_srgb(start_color[1] as f32),
-                    rgb_to_srgb(start_color[2] as f32),
+            colors.push(match self {
+                StateBased::DualColor(start_color, end_color) => [
+                    rgb_to_srgb(
+                        start_color[0] as f32
+                            + (start_color[0] - end_color[0]) as f32 / (state_rule + 1) as f32
+                                * (i + 1) as f32,
+                    ),
+                    rgb_to_srgb(
+                        start_color[1] as f32
+                            + (start_color[1] - end_color[1]) as f32 / (state_rule + 1) as f32
+                                * (i + 1) as f32,
+                    ),
+                    rgb_to_srgb(
+                        start_color[2] as f32
+                            + (start_color[2] - end_color[2]) as f32 / (state_rule + 1) as f32
+                                * (i + 1) as f32,
+                    ),
                 ],
-                StateBased::DualColorDying(alive_color) => [
-                    rgb_to_srgb(alive_color[0] as f32),
-                    rgb_to_srgb(alive_color[1] as f32),
-                    rgb_to_srgb(alive_color[2] as f32),
-                ],
-                StateBased::SingleColor(start_color) => [
-                    rgb_to_srgb(start_color[0] as f32),
-                    rgb_to_srgb(start_color[1] as f32),
-                    rgb_to_srgb(start_color[2] as f32),
-                ],
-            }
-        );
-
-
-        colors
-    }
-}
-
-enum PositionBased {
-    RgbCube(),
-    CenterDist([u32; 3])
-}
-impl PositionBased {
-    fn create_calc(&self) -> Box<dyn Fn(u32, u32, u32, u32) -> [f32; 3]> {        
-        match self {
-            PositionBased::RgbCube() => {
-                Box::new(|x: u32, y: u32, z: u32, cell_bounds: u32| -> [f32; 3] {
+                StateBased::DualColorDying(_alive_color) => {
+                    let intensity = (i + 1) as f32 / (state_rule + 2) as f32;
+                    let brightness = intensity * 255.;
                     [
-                        rgb_to_srgb(x as f32/cell_bounds as f32 * 255.),
-                        rgb_to_srgb(y as f32/cell_bounds as f32 * 255.),
-                        rgb_to_srgb(z as f32/cell_bounds as f32 * 255.),
+                        rgb_to_srgb(brightness),
+                        rgb_to_srgb(brightness),
+                        rgb_to_srgb(brightness),
                     ]
-                })
-            },
-            PositionBased::CenterDist(start_color) => {
-                Box::new(|x: u32, y: u32, z: u32, cell_bounds: u32| -> [f32; 3] {
-                    let cap = cell_bounds as f32/2.;
-                    let dist = ((x as f32 - cap).powi(2) + (y as f32 - cap).powi(2) + (z as f32 - cap).powi(2)).sqrt();
-                    let intensity = 2./(cap * 3f32.sqrt() + 2.) + dist/(cap * 3f32.sqrt() + 2.);
+                }
+                StateBased::SingleColor(start_color) => {
+                    let intensity =
+                        3. / (state_rule + 3) as f32 + i as f32 / (state_rule + 3) as f32;
                     [
                         rgb_to_srgb(intensity * start_color[0] as f32),
                         rgb_to_srgb(intensity * start_color[1] as f32),
                         rgb_to_srgb(intensity * start_color[2] as f32),
                     ]
-                })
-            },
+                }
+            });
+        }
+        colors.push(match self {
+            StateBased::DualColor(start_color, _end_color) => [
+                rgb_to_srgb(start_color[0] as f32),
+                rgb_to_srgb(start_color[1] as f32),
+                rgb_to_srgb(start_color[2] as f32),
+            ],
+            StateBased::DualColorDying(alive_color) => [
+                rgb_to_srgb(alive_color[0] as f32),
+                rgb_to_srgb(alive_color[1] as f32),
+                rgb_to_srgb(alive_color[2] as f32),
+            ],
+            StateBased::SingleColor(start_color) => [
+                rgb_to_srgb(start_color[0] as f32),
+                rgb_to_srgb(start_color[1] as f32),
+                rgb_to_srgb(start_color[2] as f32),
+            ],
+        });
+
+        colors
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PositionBased {
+    RgbCube(),
+    CenterDist([u32; 3]),
+}
+impl PositionBased {
+    fn create_calc(&self) -> Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]> {
+        match self {
+            PositionBased::RgbCube() => Box::new(
+                |x: u32, y: u32, z: u32, cell_bounds: u32, _start_color: &[u32; 3]| -> [f32; 3] {
+                    [
+                        rgb_to_srgb(x as f32 / cell_bounds as f32 * 255.),
+                        rgb_to_srgb(y as f32 / cell_bounds as f32 * 255.),
+                        rgb_to_srgb(z as f32 / cell_bounds as f32 * 255.),
+                    ]
+                },
+            ),
+            PositionBased::CenterDist(_start_color) => Box::new(
+                |x: u32, y: u32, z: u32, cell_bounds: u32, start_color: &[u32; 3]| -> [f32; 3] {
+                    let cap = cell_bounds as f32 / 2.;
+                    let dist = ((x as f32 - cap).powi(2)
+                        + (y as f32 - cap).powi(2)
+                        + (z as f32 - cap).powi(2))
+                    .sqrt();
+                    let intensity = 2. / (cap * 3f32.sqrt() + 2.) + dist / (cap * 3f32.sqrt() + 2.);
+                    [
+                        rgb_to_srgb(intensity * start_color[0] as f32),
+                        rgb_to_srgb(intensity * start_color[1] as f32),
+                        rgb_to_srgb(intensity * start_color[2] as f32),
+                    ]
+                },
+            ),
         }
     }
 }
@@ -551,10 +568,11 @@ pub struct State {
     moore_offsets: bool,
 
     cell_bounds: u32,
-    
+
     draw_mode: DrawMode,
 
     state_colors: Vec<[f32; 3]>,
+    pos_calc: Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]>,
 }
 impl State {
     async fn new(window: &Window) -> Self {
@@ -574,8 +592,11 @@ impl State {
 
         // let state_based = StateBased::DualColorDying([191, 97, 106]);
         let state_based = StateBased::SingleColor([191, 97, 106]);
-        let draw_mode = DrawMode::StateBased(state_based);
+        let position_based = PositionBased::RgbCube();
+        // let draw_mode = DrawMode::StateBased(state_based);
+        let draw_mode = DrawMode::PositionBased(position_based);
         let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
+        let pos_calc = position_based.create_calc();
         println!("BBB {:?}", state_colors);
 
         let size = window.inner_size();
@@ -822,6 +843,7 @@ impl State {
             moore_offsets,
             draw_mode,
             state_colors,
+            pos_calc,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -1031,11 +1053,44 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
-            if self.cells[i].should_draw() {
-                self.instance_data.push(self.cells[i].create_instance_state_based(&self.state_colors).to_raw());
+        match self.draw_mode {
+            DrawMode::StateBased(_) => {
+                for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                    if self.cells[i].should_draw() {
+                        self.instance_data.push(
+                            self.cells[i]
+                                .create_instance_state_based(&self.state_colors)
+                                .to_raw(),
+                        );
+                    }
+                }
             }
-        }
+            DrawMode::PositionBased(_) => {
+                for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
+                    for y in 0..self.cell_bounds {
+                        for z in 0..self.cell_bounds {
+                            let idx = three_to_one(x, y, z, self.cell_bounds);
+                            if self.cells[idx].should_draw() {
+                                self.instance_data.push(
+                                    Instance {
+                                        position: self.cells[idx]
+                                            .position,
+                                        color: (self.pos_calc)(
+                                            x,
+                                            y,
+                                            z,
+                                            self.cell_bounds,
+                                            &[255, 255, 255],
+                                        ),
+                                    }
+                                    .to_raw(),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        };
     }
     fn reset(&mut self) {
         self.randomize_cells();
