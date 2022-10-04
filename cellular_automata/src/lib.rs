@@ -75,7 +75,8 @@ impl Cell {
         }
     }
     fn create_instance_center_dist(&self, offset: f32, max_color: &[u32; 3]) -> Instance {
-        let dist = (self.position.x.powi(2) + self.position.y.powi(2) + self.position.z.powi(2)).sqrt();
+        let dist =
+            (self.position.x.powi(2) + self.position.y.powi(2) + self.position.z.powi(2)).sqrt();
         let intensity = 2. / (offset * 3f32.sqrt() + 2.) + dist / (offset * 3f32.sqrt() + 2.);
         Instance {
             position: self.position,
@@ -118,17 +119,20 @@ impl StateBased {
                 StateBased::DualColor(start_color, end_color) => [
                     rgb_to_srgb(
                         start_color[0] as f32
-                            + (start_color[0] - end_color[0]) as f32 / (state_rule + 1) as f32
+                            + ((end_color[0] as f32 - start_color[0] as f32)
+                                / (state_rule + 1) as f32)
                                 * (i + 1) as f32,
                     ),
                     rgb_to_srgb(
                         start_color[1] as f32
-                            + (start_color[1] - end_color[1]) as f32 / (state_rule + 1) as f32
+                            + ((end_color[1] as f32 - start_color[1] as f32)
+                                / (state_rule + 1) as f32)
                                 * (i + 1) as f32,
                     ),
                     rgb_to_srgb(
                         start_color[2] as f32
-                            + (start_color[2] - end_color[2]) as f32 / (state_rule + 1) as f32
+                            + ((end_color[2] as f32 - start_color[2] as f32)
+                                / (state_rule + 1) as f32)
                                 * (i + 1) as f32,
                     ),
                 ],
@@ -1051,19 +1055,26 @@ impl State {
                     PositionBased::RgbCube() => {
                         for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
                             if self.cells[i].should_draw() {
-                                self.instance_data.push(self.cells[i].create_instance_rgb_cube(self.cell_bounds, offset).to_raw());
+                                self.instance_data.push(
+                                    self.cells[i]
+                                        .create_instance_rgb_cube(self.cell_bounds, offset)
+                                        .to_raw(),
+                                );
                             }
-                        } 
-                    },
+                        }
+                    }
                     PositionBased::CenterDist(start_color) => {
                         for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
                             if self.cells[i].should_draw() {
-                                self.instance_data.push(self.cells[i].create_instance_center_dist(offset, &start_color).to_raw());
+                                self.instance_data.push(
+                                    self.cells[i]
+                                        .create_instance_center_dist(offset, &start_color)
+                                        .to_raw(),
+                                );
                             }
-                        } 
+                        }
                     }
                 }
-                
             }
         };
     }
@@ -1165,6 +1176,12 @@ impl State {
     fn update_state_rule(&mut self, old_state: u32) {
         for cell in self.cells.iter_mut() {
             cell.update_state_rule(old_state, self.state);
+        }
+        match self.draw_mode {
+            DrawMode::StateBased(state_based) => {
+                self.state_colors = state_based.create_colors(self.state);
+            }
+            DrawMode::PositionBased(_) => {}
         }
     }
 }
@@ -1361,9 +1378,11 @@ pub async fn run() {
                     if draw_mode_str == "RGB" {
                         state.draw_mode = DrawMode::PositionBased(PositionBased::RgbCube());
                     } else if draw_mode_str == "CenterDist" {
-                        state.draw_mode = DrawMode::PositionBased(PositionBased::CenterDist([50, 235, 130]));
+                        state.draw_mode =
+                            DrawMode::PositionBased(PositionBased::CenterDist([50, 235, 130]));
                     } else {
-                        let mut state_based: StateBased = StateBased::DualColor([0, 228, 48], [230, 41, 55]);
+                        let mut state_based: StateBased =
+                            StateBased::DualColor([163, 190, 140], [191, 97, 106]);
                         if draw_mode_str == "DualColorDying" {
                             state_based = StateBased::DualColorDying([191, 97, 106]);
                         } else if draw_mode_str == "SingleColor" {
