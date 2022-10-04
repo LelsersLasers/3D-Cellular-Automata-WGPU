@@ -102,6 +102,14 @@
         let paused = false;
         let crossSection = false;
         let resetFlag = false;
+
+        document.querySelectorAll('input[type=radio][name="draw_mode"]').forEach(
+            (radio) => {
+                radio.addEventListener('change', () => {
+                    document.getElementById("draw_mode_rust").value = document.querySelector('input[type=radio][name="draw_mode"]:checked').value;
+                });
+            }
+        );
         
         function togglePause() {
             paused = !paused;
@@ -200,24 +208,12 @@
             }
             document.getElementById("neighborhood_rule_rust").value = neigborhoodValue;
         }
-        function applyDrawMode() {
-            const radioButtons = document.querySelectorAll('input[name="draw_mode"]');
-            let draw_mode;
-            for (const radioButton of radioButtons) {
-                if (radioButton.checked) {
-                    draw_mode = radioButton.value;
-                    break;
-                }
-            }
-            document.getElementById("draw_mode_rust").value = draw_mode;
-        }
         function apply() {
             applySurvivalRule();
             applySpawnRule();
             applyStateRule();
             applyNeighborhoodRule();
             applyCellBounds();
-            applyDrawMode();
         }
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
