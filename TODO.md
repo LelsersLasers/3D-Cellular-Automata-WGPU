@@ -1,5 +1,6 @@
 # TODO
 
+- Draw cell bounds
 - Improve html layout
     - show half, toggle left bar, *show 7/8s*
     - Side panel layout for settings
@@ -19,3 +20,4 @@
 - Improve output in left bar
 - Rgb -> srgb in fragment shader
 - In PositionBased draw modes, don't do vertex darkening
+- OPTIMZE every small thing

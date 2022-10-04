@@ -64,11 +64,28 @@ impl Cell {
             color: colors[self.hp as usize],
         }
     }
-    // fn create_instance_pos_based(&self, calc: Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]>) -> Instance{
-    //     Instance {
-    //         position:
-    //     }
-    // }
+    fn create_instance_rgb_cube(&self, cell_bounds: u32, offset: f32) -> Instance {
+        Instance {
+            position: self.position,
+            color: [
+                rgb_to_srgb((self.position.x + offset) / cell_bounds as f32 * 255.),
+                rgb_to_srgb((self.position.y + offset) / cell_bounds as f32 * 255.),
+                rgb_to_srgb((self.position.z + offset) / cell_bounds as f32 * 255.),
+            ],
+        }
+    }
+    fn create_instance_center_dist(&self, offset: f32, max_color: &[u32; 3]) -> Instance {
+        let dist = (self.position.x.powi(2) + self.position.y.powi(2) + self.position.z.powi(2)).sqrt();
+        let intensity = 2. / (offset * 3f32.sqrt() + 2.) + dist / (offset * 3f32.sqrt() + 2.);
+        Instance {
+            position: self.position,
+            color: [
+                rgb_to_srgb(intensity * max_color[0] as f32),
+                rgb_to_srgb(intensity * max_color[1] as f32),
+                rgb_to_srgb(intensity * max_color[2] as f32),
+            ],
+        }
+    }
     fn get_alive(&self, state: u32) -> bool {
         self.hp == state as i32
     }
@@ -161,36 +178,6 @@ impl StateBased {
 enum PositionBased {
     RgbCube(),
     CenterDist([u32; 3]),
-}
-impl PositionBased {
-    fn create_calc(&self) -> Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]> {
-        match self {
-            PositionBased::RgbCube() => Box::new(
-                |x: u32, y: u32, z: u32, cell_bounds: u32, _start_color: &[u32; 3]| -> [f32; 3] {
-                    [
-                        rgb_to_srgb(x as f32 / cell_bounds as f32 * 255.),
-                        rgb_to_srgb(y as f32 / cell_bounds as f32 * 255.),
-                        rgb_to_srgb(z as f32 / cell_bounds as f32 * 255.),
-                    ]
-                },
-            ),
-            PositionBased::CenterDist(_start_color) => Box::new(
-                |x: u32, y: u32, z: u32, cell_bounds: u32, start_color: &[u32; 3]| -> [f32; 3] {
-                    let cap = cell_bounds as f32 / 2.;
-                    let dist = ((x as f32 - cap).powi(2)
-                        + (y as f32 - cap).powi(2)
-                        + (z as f32 - cap).powi(2))
-                    .sqrt();
-                    let intensity = 2. / (cap * 3f32.sqrt() + 2.) + dist / (cap * 3f32.sqrt() + 2.);
-                    [
-                        rgb_to_srgb(intensity * start_color[0] as f32),
-                        rgb_to_srgb(intensity * start_color[1] as f32),
-                        rgb_to_srgb(intensity * start_color[2] as f32),
-                    ]
-                },
-            ),
-        }
-    }
 }
 
 enum DrawMode {
@@ -572,7 +559,6 @@ pub struct State {
     draw_mode: DrawMode,
 
     state_colors: Vec<[f32; 3]>,
-    pos_calc: Box<dyn Fn(u32, u32, u32, u32, &[u32; 3]) -> [f32; 3]>,
 }
 impl State {
     async fn new(window: &Window) -> Self {
@@ -593,12 +579,10 @@ impl State {
         // let state_based = StateBased::DualColorDying([191, 97, 106]);
         let state_based = StateBased::SingleColor([191, 97, 106]);
         //let position_based = PositionBased::CenterDist([50, 200, 125]);
-        let position_based = PositionBased::CenterDist([255, 255, 255]);
+        let position_based = PositionBased::RgbCube();
         // let draw_mode = DrawMode::StateBased(state_based);
         let draw_mode = DrawMode::PositionBased(position_based);
         let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
-        let pos_calc = position_based.create_calc();
-        println!("BBB {:?}", state_colors);
 
         let size = window.inner_size();
 
@@ -844,7 +828,6 @@ impl State {
             moore_offsets,
             draw_mode,
             state_colors,
-            pos_calc,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -1067,56 +1050,21 @@ impl State {
                 }
             }
             DrawMode::PositionBased(pos_based) => {
+                let offset = self.cell_bounds as f32 / 2.;
                 match pos_based {
                     PositionBased::RgbCube() => {
-                        for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
-                            for y in 0..self.cell_bounds {
-                                for z in 0..self.cell_bounds {
-                                    let idx = three_to_one(x, y, z, self.cell_bounds);
-                                    if self.cells[idx].should_draw() {
-                                        self.instance_data.push(
-                                            Instance {
-                                                position: self.cells[idx]
-                                                    .position,
-                                                color: (self.pos_calc)(
-                                                    x,
-                                                    y,
-                                                    z,
-                                                    self.cell_bounds,
-                                                    &[0, 0, 0], // not used
-                                                ),
-                                            }
-                                            .to_raw(),
-                                        );
-                                    }
-                                }
+                        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                            if self.cells[i].should_draw() {
+                                self.instance_data.push(self.cells[i].create_instance_rgb_cube(self.cell_bounds, offset).to_raw());
                             }
-                        }
+                        } 
                     },
                     PositionBased::CenterDist(start_color) => {
-                        for x in 0..self.cell_bounds / (1 + self.cross_section as u32) {
-                            for y in 0..self.cell_bounds {
-                                for z in 0..self.cell_bounds {
-                                    let idx = three_to_one(x, y, z, self.cell_bounds);
-                                    if self.cells[idx].should_draw() {
-                                        self.instance_data.push(
-                                            Instance {
-                                                position: self.cells[idx]
-                                                    .position,
-                                                color: (self.pos_calc)(
-                                                    x,
-                                                    y,
-                                                    z,
-                                                    self.cell_bounds,
-                                                    &start_color,
-                                                ),
-                                            }
-                                            .to_raw(),
-                                        );
-                                    }
-                                }
+                        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                            if self.cells[i].should_draw() {
+                                self.instance_data.push(self.cells[i].create_instance_center_dist(offset, &start_color).to_raw());
                             }
-                        }
+                        } 
                     }
                 }
                 
