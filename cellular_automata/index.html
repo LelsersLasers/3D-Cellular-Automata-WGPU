@@ -64,6 +64,35 @@
             <br />
             <input type="radio" id="CenterDist" name="draw_mode" value="CenterDist">
             <label for="CenterDist">Center Distance</label>
+
+            <br class="spacing" />
+            <br />
+
+            <div id="DualColorDying_color">
+                <label for="dcd_alive_color">Alive Color:</label>
+                <input type="text" id="dcd_alive_color" value="191, 97, 106" />
+            </div>
+
+            <div id="SingleColor_color" hidden>
+                <label for="sc_start_color">Start Color:</label>
+                <input type="text" id="sc_start_color" value="255, 20, 20" />
+            </div>
+
+            <div id="DualColor_color" hidden>
+                <label for="dc_start_color">Start Color:</label>
+                <input type="text" id="dc_start_color" value="163, 190, 140" />
+                <br class="spacing" />
+                <label for="dc_end_color">End Color:</label>
+                <input type="text" id="dc_end_color" value="191, 97, 106" />
+            </div>
+
+            <div id="RGB_color" hidden></div>
+
+            <div id="CenterDist_color" hidden>
+                <label for="cd_start_color">Max Distance Color:</label>
+                <input type="text" id="cd_start_color" value="50, 235, 130" />
+            </div>
+
             
             <hr />
 
@@ -106,10 +135,20 @@
         document.querySelectorAll('input[type=radio][name="draw_mode"]').forEach(
             (radio) => {
                 radio.addEventListener('change', () => {
-                    document.getElementById("draw_mode_rust").value = document.querySelector('input[type=radio][name="draw_mode"]:checked').value;
+                    let val = document.querySelector('input[type=radio][name="draw_mode"]:checked').value;
+                    document.getElementById("draw_mode_rust").value = val;
+                    hideAllColorInput();
+                    document.getElementById(val + "_color").hidden = !document.getElementById(val + "_color").hidden;
                 });
             }
         );
+        function hideAllColorInput() {
+            document.getElementById("DualColorDying_color").hidden = true;
+            document.getElementById("SingleColor_color").hidden = true;
+            document.getElementById("DualColor_color").hidden = true;
+            document.getElementById("RGB_color").hidden = true;
+            document.getElementById("CenterDist_color").hidden = true;
+        }
         
         function togglePause() {
             paused = !paused;
