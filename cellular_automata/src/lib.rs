@@ -576,12 +576,8 @@ impl State {
         let moore_offsets = true;
         let cell_bounds = 96;
 
-        // let state_based = StateBased::DualColorDying([191, 97, 106]);
-        let state_based = StateBased::SingleColor([191, 97, 106]);
-        //let position_based = PositionBased::CenterDist([50, 200, 125]);
-        let position_based = PositionBased::RgbCube();
-        // let draw_mode = DrawMode::StateBased(state_based);
-        let draw_mode = DrawMode::PositionBased(position_based);
+        let state_based = StateBased::DualColorDying([191, 97, 106]);
+        let draw_mode = DrawMode::StateBased(state_based);
         let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
 
         let size = window.inner_size();
@@ -1197,6 +1193,7 @@ pub async fn run() {
     let mut last_rule_state: u32 = 10;
 
     let mut last_cell_bounds: u32 = 96;
+    let mut last_draw_mode: String = "DualColorDying".to_string();
 
     let mut last_reset_flag: bool = false;
 
@@ -1301,6 +1298,13 @@ pub async fn run() {
                     .unwrap();
                 state.moore_offsets = rule_neighborhood;
 
+                let draw_mode: String = document
+                    .get_element_by_id("draw_mode_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value();
+
                 let paused: bool = document
                     .get_element_by_id("paused_rust")
                     .unwrap()
@@ -1351,6 +1355,24 @@ pub async fn run() {
                     state.cell_bounds = cell_bounds;
                     state.update_cell_bounds(last_cell_bounds);
                     last_cell_bounds = cell_bounds;
+                }
+                if last_draw_mode != draw_mode {
+                    let draw_mode_str = draw_mode.as_str();
+                    if draw_mode_str == "RGB" {
+                        state.draw_mode = DrawMode::PositionBased(PositionBased::RgbCube());
+                    } else if draw_mode_str == "CenterDist" {
+                        state.draw_mode = DrawMode::PositionBased(PositionBased::CenterDist([50, 235, 130]));
+                    } else {
+                        let mut state_based: StateBased = StateBased::DualColor([0, 228, 48], [230, 41, 55]);
+                        if draw_mode_str == "DualColorDying" {
+                            state_based = StateBased::DualColorDying([191, 97, 106]);
+                        } else if draw_mode_str == "SingleColor" {
+                            state_based = StateBased::SingleColor([255, 20, 20]);
+                        }
+                        state.draw_mode = DrawMode::StateBased(state_based);
+                        state.state_colors = state_based.create_colors(state.state);
+                    }
+                    last_draw_mode = draw_mode;
                 }
                 if last_reset_flag != reset_flag {
                     state.reset();

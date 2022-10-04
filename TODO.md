@@ -12,6 +12,8 @@
 - Restore last applied rules from local storage
 - Options:
     - Colors
+        - Allow input for colors
+        - Do it on click (not on apply)
     - Speed
         - Tick modes?
     - "Wrap" mode?
