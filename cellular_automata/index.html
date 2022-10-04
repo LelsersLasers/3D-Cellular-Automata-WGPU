@@ -48,14 +48,22 @@
             <br />
             <hr />
 
-            <label for="draw_Mode_input">Draw mode:</label>
+            <label for="draw_mode_input">Draw mode:</label>
             <br />
-            <input type="radio" id="DualColorDying" name="draw_Mode_input" value="DualColorDying" checked>
+            <input type="radio" id="DualColorDying" name="draw_mode_input" value="DualColorDying" checked>
             <label for="DualColorDying">Dual Color Dying</label>
             <br />
-            <input type="radio" id="SingleColor" name="draw_Mode_input" value="SingleColor">
+            <input type="radio" id="SingleColor" name="draw_mode_input" value="SingleColor">
             <label for="SingleColor">Single Color</label>
-            <br class="spacing" />
+            <br />
+            <input type="radio" id="DualColor" name="draw_mode_input" value="DualColor">
+            <label for="DualColor">Dual Color</label>
+            <br />
+            <input type="radio" id="RGB" name="draw_mode_input" value="RGB">
+            <label for="RGB">RGB</label>
+            <br />
+            <input type="radio" id="CenterDist" name="draw_mode_input" value="CenterDist">
+            <label for="CenterDist">Center Distance</label>
             
             <hr />
 
@@ -201,7 +209,7 @@
         function resizeCanvas() {
             const canvas = document.getElementsByTagName("canvas")[0];
             if (canvas) {
-                let maxWidth = (window.innerWidth - 4) * 0.75;
+                let maxWidth = (window.innerWidth - 50) * 0.75;
                 let maxHeight = window.innerHeight - 4;
                 let width = Math.min(maxWidth, (maxHeight * 16) / 9);
                 let height = Math.min(maxHeight, (maxWidth * 9) / 16);
@@ -231,6 +239,7 @@
         div {
             margin: 0;
             padding: 0;
+            /* border: 1px solid red; */
         }
         hr {
             background-color: #ECEFF4;
@@ -283,7 +292,7 @@
             outline: 2px solid #EBCB8B;
         }
         #add_canvas_to {
-            flex: 3;
+            flex: 4;
             margin: 0 auto;
             padding: 0;
             display: flex;
@@ -291,11 +300,8 @@
             align-items: center; 
         }
         #main_stuff {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); 
             width: 100%;
+            height: 100vh;
         }
         #settings {
             padding: 2em;
@@ -303,12 +309,14 @@
             margin: 1em;
             border-radius: 1em;
             background-color: #3B4252;
+            overflow: auto;
         }
         canvas {
             background-color: #2b313f;
             outline: 2px solid #B48EAD;
             margin: 0 auto;
             padding: 0;
+            padding-left: 10px;
             border-radius: 0.5em;
         }
         canvas:focus {
