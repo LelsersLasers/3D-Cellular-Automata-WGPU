@@ -89,10 +89,9 @@
             <div id="RGB_color" hidden></div>
 
             <div id="CenterDist_color" hidden>
-                <label for="cd_start_color">Max Distance Color:</label>
-                <input type="text" id="cd_start_color" value="50, 235, 130" />
+                <label for="cd_max_color">Max Distance Color:</label>
+                <input type="text" id="cd_max_color" value="50, 235, 130" />
             </div>
-
             
             <hr />
 
@@ -114,6 +113,12 @@
 
         <input type="hidden" id="cell_bounds_rust" value="96" />
         <input type="hidden" id="draw_mode_rust" value="DualColorDying" />
+
+        <input type="hidden" id="dcd_alive_color_rust" value="191, 97, 106" />
+        <input type="hidden" id="sc_start_color_rust" value="255, 20, 20" />
+        <input type="hidden" id="dc_start_color_rust" value="163, 190, 140" />
+        <input type="hidden" id="dc_end_color_rust" value="191, 97, 106" />
+        <input type="hidden" id="cd_max_color_rust" value="50, 235, 130" />
 
         <input type="hidden" id="paused_rust" value="false" />
         <input type="hidden" id="reset_cells_rust" value="false" />
@@ -142,6 +147,34 @@
                 });
             }
         );
+        document.querySelectorAll('input[type=text]').forEach(
+            (input) => {
+                if (input.id.includes("_color") && !input.id.includes("_color_")) {
+                    input.addEventListener('input', () => {
+                        applyColorChange(input.id);
+                    });
+                }
+            }
+        );
+        function applyColorChange(id) {
+            const val = document.getElementById(id).value;
+            const valTrimmed = val.replace(/\s/g, '');
+            let valSplit = valTrimmed.split(",");
+            if (valSplit.length != 3) {
+                document.getElementById(id).style.border = "2px solid #BF616A";
+                return;
+            }
+            for (let i = 0; i < valSplit.length; i++) {
+                valSplitInt = parseInt(valSplit[i]);
+                if (isNaN(valSplitInt) || valSplitInt < 0 || valSplitInt > 255) {
+                    document.getElementById(id).style.border = "2px solid #BF616A";
+                    return;
+                }
+                valSplit[i] = valSplitInt[i];
+            }
+            document.getElementById(id + "_color").value = valSplit.join(",");
+            document.getElementById(id).style.border = "none";
+        }
         function hideAllColorInput() {
             document.getElementById("DualColorDying_color").hidden = true;
             document.getElementById("SingleColor_color").hidden = true;
