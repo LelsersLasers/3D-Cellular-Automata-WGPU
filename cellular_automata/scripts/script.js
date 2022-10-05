@@ -48,14 +48,35 @@ function load() {
     setFromLoad("survival_rule_input", "2,6,9");
     setFromLoad("spawn_rule_input", "4,6,8,9");
     setFromLoad("state_rule_input", "10");
+    
+    let radioButtonsN = document.querySelectorAll('input[name="neigborhood"]');
+    if (getFromLS(baseKey + "neighborhood_rule_input", "true") == "true") {
+        radioButtonsN[0].checked = true;
+        radioButtonsN[1].checked = false;
+    } else {
+        radioButtonsN[0].checked = false;
+        radioButtonsN[1].checked = true;
+    }
 
     setFromLoad("survival_rule_rust", "2,6,9");
     setFromLoad("spawn_rule_rust", "4,6,8,9");
     setFromLoad("state_rule_rust", "10");
-    // NEIGHBORHOOD
+    setFromLoad("neighborhood_rule_rust", "true");
 
     setFromLoad("cell_bounds_input", "96");
-    // DRAW MODE
+    setFromLoad("cell_bounds_rust", "96");
+
+    let radioButtonsD = document.querySelectorAll('input[name="draw_mode"]');
+    hideAllColorInput();
+    for (let radioButton of radioButtonsD) {
+        radioButton.checked = false;
+        if (getFromLS(baseKey + "draw_mode_input", "DualColorDying") == radioButton.value) {
+            radioButton.checked = true;
+            document.getElementById(radioButton.value + "_color").hidden = !document.getElementById(radioButton.value + "_color").hidden;
+            break;
+        }
+    }
+    setFromLoad("draw_mode_rust", "DualColorDying");
 
     setFromLoad("dcd_alive_color", "191, 97, 106");
     setFromLoad("sc_start_color", "255, 20, 20");
@@ -69,6 +90,7 @@ function load() {
     setFromLoad("dc_end_color_rust", "191,97,106");
     setFromLoad("cd_max_color_rust", "50,235,130");
 
+    apply();
     resetCells();
 }
 
@@ -76,16 +98,31 @@ function save() {
     setFromSave("survival_rule_input");
     setFromSave("spawn_rule_input");
     setFromSave("state_rule_input");
+    const radioButtonsN = document.querySelectorAll('input[name="neigborhood"]');
+    if (radioButtonsN[0].checked) {
+        setToLS(baseKey + "neighborhood_rule_input", "true");
+    } else {
+        setToLS(baseKey + "neighborhood_rule_input", "false");
+    }
 
     setFromSave("survival_rule_rust");
     setFromSave("spawn_rule_rust");
     setFromSave("state_rule_rust");
-    // NEIGHBORHOOD
-
-    apply();
+    setFromSave("neighborhood_rule_rust");
 
     setFromSave("cell_bounds_input");
-    // DRAW MODE
+    setFromSave("cell_bounds_rust");
+
+    const radioButtonsD = document.querySelectorAll('input[name="draw_mode"]');
+    let neigborhoodValue;
+    for (const radioButton of radioButtonsD) {
+        if (radioButton.checked) {
+            neigborhoodValue = radioButton.value;
+            break;
+        }
+    }
+    setToLS(baseKey + "draw_mode_input", neigborhoodValue);
+    setFromSave("draw_mode_rust");
 
     setFromSave("dcd_alive_color");
     setFromSave("sc_start_color");
