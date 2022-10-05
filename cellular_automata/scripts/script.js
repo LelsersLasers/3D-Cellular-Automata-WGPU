@@ -2,6 +2,8 @@ let paused = false;
 let crossSection = false;
 let resetFlag = false;
 
+const baseKey = "3D_Cellular_Automata_";
+
 document.querySelectorAll('input[type=radio][name="draw_mode"]').forEach(
     (radio) => {
         radio.addEventListener('change', () => {
@@ -21,6 +23,85 @@ document.querySelectorAll('input[type=text]').forEach(
         }
     }
 );
+
+function getFromLS(key, otherwise) {
+    const val = localStorage.getItem(key);
+    if (val === null) {
+        return otherwise;
+    }
+    return val;
+}
+function setFromLoad(id, otherwise) {
+    const val = getFromLS(baseKey + id, otherwise);
+    document.getElementById(id).value = val;
+}
+
+function setToLS(key, value) {
+    localStorage.setItem(key, value);
+}
+function setFromSave(id) {
+    const val = document.getElementById(id).value;
+    setToLS(baseKey + id, val);
+}
+
+function load() {
+    setFromLoad("survival_rule_input", "2,6,9");
+    setFromLoad("spawn_rule_input", "4,6,8,9");
+    setFromLoad("state_rule_input", "10");
+
+    setFromLoad("survival_rule_rust", "2,6,9");
+    setFromLoad("spawn_rule_rust", "4,6,8,9");
+    setFromLoad("state_rule_rust", "10");
+    // NEIGHBORHOOD
+
+    setFromLoad("cell_bounds_input", "96");
+    // DRAW MODE
+
+    setFromLoad("dcd_alive_color", "191, 97, 106");
+    setFromLoad("sc_start_color", "255, 20, 20");
+    setFromLoad("dc_start_color", "255, 20, 20");
+    setFromLoad("dc_end_color", "191, 97, 106");
+    setFromLoad("cd_max_color", "50, 235, 130");
+
+    setFromLoad("dcd_alive_color_rust", "191,97,106");
+    setFromLoad("sc_start_color_rust", "255,20,20");
+    setFromLoad("dc_start_color_rust", "255,20,20");
+    setFromLoad("dc_end_color_rust", "191,97,106");
+    setFromLoad("cd_max_color_rust", "50,235,130");
+
+    resetCells();
+}
+
+function save() {
+    setFromSave("survival_rule_input");
+    setFromSave("spawn_rule_input");
+    setFromSave("state_rule_input");
+
+    setFromSave("survival_rule_rust");
+    setFromSave("spawn_rule_rust");
+    setFromSave("state_rule_rust");
+    // NEIGHBORHOOD
+
+    apply();
+
+    setFromSave("cell_bounds_input");
+    // DRAW MODE
+
+    setFromSave("dcd_alive_color");
+    setFromSave("sc_start_color");
+    setFromSave("dc_start_color");
+    setFromSave("dc_end_color");
+    setFromSave("cd_max_color");
+
+    setFromSave("dcd_alive_color_rust");
+    setFromSave("sc_start_color_rust");
+    setFromSave("dc_start_color_rust");
+    setFromSave("dc_end_color_rust");
+    setFromSave("cd_max_color_rust");
+}
+
+
+
 function applyColorChange(id) {
     const val = document.getElementById(id).value;
     const valTrimmed = val.replace(/\s/g, '');
@@ -30,7 +111,7 @@ function applyColorChange(id) {
         return;
     }
     for (let i = 0; i < valSplit.length; i++) {
-        valSplitInt = parseInt(valSplit[i]);
+        let valSplitInt = parseInt(valSplit[i]);
         if (isNaN(valSplitInt) || valSplitInt < 0 || valSplitInt > 255) {
             document.getElementById(id).style.border = "2px solid #BF616A";
             return;
