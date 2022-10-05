@@ -1,0 +1,102 @@
+.flex-container {
+    display: flex;
+}
+.spacing {
+    content: "";
+    display: block;
+    margin: 0.5em;
+}
+html {
+    font-family:'Courier New';
+}
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #2b313f;
+}
+div {
+    margin: 0;
+    padding: 0;
+    /* border: 1px solid red; */
+}
+hr {
+    background-color: #ECEFF4;
+    border: none;
+    height: 1px;
+    border-radius: 10px;
+}
+label {
+    color: #ECEFF4;
+    height: 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+}
+input {
+    height: 1.2em;
+    font-size: 1em;
+    padding: 0.8em 0.5em;
+    box-sizing: border-box;
+    background-color: #4C566A;
+    color: #ECEFF4;
+    border-radius: 7px;
+    width: 100%;
+    border: none;
+    outline: none !important;
+}
+input:focus {
+    outline: 2px solid #EBCB8B !important;
+}
+input[type="radio"] {
+    width: 0.8em;
+    color: #ECEFF4;
+    outline: none !important;
+}
+/* input[type="radio"]:focus {
+    outline: none !important;
+} */
+button {
+    font-size: 1em;
+    border: none;
+    padding: 0.2em 2em;
+    background-color: #5E81AC;
+    color: #ECEFF4;
+    cursor: pointer;
+    border-radius: 7px;
+    width: 100%;
+    margin-bottom: 0.5em;
+    outline: none;
+}
+button:focus {
+    outline: 2px solid #EBCB8B;
+}
+#add_canvas_to {
+    flex: 4;
+    margin: 0 auto;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+}
+#main_stuff {
+    width: 100%;
+    height: 100vh;
+}
+#settings {
+    padding: 2em;
+    flex: 1;
+    margin: 1em;
+    border-radius: 1em;
+    background-color: #3B4252;
+    overflow: auto;
+}
+canvas {
+    background-color: #2b313f;
+    outline: 2px solid #B48EAD;
+    margin: 0 auto;
+    padding: 0;
+    padding-left: 10px !important;
+    border-radius: 0.5em;
+}
+canvas:focus {
+    outline: 2px solid #EBCB8B;
+}
