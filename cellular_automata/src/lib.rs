@@ -1214,6 +1214,12 @@ pub async fn run() {
 
     let mut last_reset_flag: bool = false;
 
+    let mut last_dcd_alive_color: [u32; 3] = [191, 97, 106];
+    let mut last_sc_start_color: [u32; 3] = [255, 20, 20];
+    let mut last_dc_start_color: [u32; 3] = [163, 190, 140];
+    let mut last_dc_end_color: [u32; 3] = [191, 97, 106];
+    let mut last_cd_max_color: [u32; 3] = [50, 235, 130];
+
     #[cfg(target_arch = "wasm32")]
     {
         window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
@@ -1351,6 +1357,71 @@ pub async fn run() {
                     .parse()
                     .unwrap();
 
+                let dcd_alive: Vec<u32> = document
+                    .get_element_by_id("dcd_alive_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dcd_alive_color: [u32; 3] = [dcd_alive[0], dcd_alive[1], dcd_alive[2]];
+
+                let sc_start: Vec<u32> = document
+                    .get_element_by_id("sc_start_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let sc_start_color: [u32; 3] = [sc_start[0], sc_start[1], sc_start[2]];
+
+                let dc_start: Vec<u32> = document
+                    .get_element_by_id("dc_start_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dc_start_color: [u32; 3] = [dc_start[0], dc_start[1], dc_start[2]];
+
+                let dc_end: Vec<u32> = document
+                    .get_element_by_id("dc_end_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dc_end_color: [u32; 3] = [dc_end[0], dc_end[1], dc_end[2]];
+
+                let cd_max: Vec<u32> = document
+                    .get_element_by_id("cd_max_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let cd_max_color: [u32; 3] = [cd_max[0], cd_max[1], cd_max[2]];
+
                 if last_rule_state != rule_state {
                     state.state = rule_state;
                     state.update_state_rule(last_rule_state);
@@ -1373,20 +1444,31 @@ pub async fn run() {
                     state.update_cell_bounds(last_cell_bounds);
                     last_cell_bounds = cell_bounds;
                 }
-                if last_draw_mode != draw_mode {
+                if last_draw_mode != draw_mode
+                    || last_dcd_alive_color != dcd_alive_color
+                    || last_sc_start_color != sc_start_color
+                    || last_dc_start_color != dc_start_color
+                    || last_dc_end_color != dc_end_color
+                    || last_cd_max_color != cd_max_color
+                {
                     let draw_mode_str = draw_mode.as_str();
                     if draw_mode_str == "RGB" {
                         state.draw_mode = DrawMode::PositionBased(PositionBased::RgbCube());
                     } else if draw_mode_str == "CenterDist" {
                         state.draw_mode =
-                            DrawMode::PositionBased(PositionBased::CenterDist([50, 235, 130]));
+                            DrawMode::PositionBased(PositionBased::CenterDist(cd_max_color));
+                        last_cd_max_color = cd_max_color;
                     } else {
                         let mut state_based: StateBased =
-                            StateBased::DualColor([163, 190, 140], [191, 97, 106]);
+                            StateBased::DualColor(dc_start_color, dc_end_color);
+                        last_dc_start_color = dc_start_color;
+                        last_dc_end_color = dc_end_color;
                         if draw_mode_str == "DualColorDying" {
-                            state_based = StateBased::DualColorDying([191, 97, 106]);
+                            state_based = StateBased::DualColorDying(dcd_alive_color);
+                            last_dcd_alive_color = dcd_alive_color;
                         } else if draw_mode_str == "SingleColor" {
-                            state_based = StateBased::SingleColor([255, 20, 20]);
+                            state_based = StateBased::SingleColor(sc_start_color);
+                            last_sc_start_color = sc_start_color;
                         }
                         state.draw_mode = DrawMode::StateBased(state_based);
                         state.state_colors = state_based.create_colors(state.state);

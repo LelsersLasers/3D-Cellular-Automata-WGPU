@@ -2,17 +2,19 @@
 
 - Draw cell bounds
 - Improve html layout
-    - show half, toggle left bar, *show 7/8s*
-    - Side panel layout for settings
-        - Labels, look nice
-        - Dynamic CSS
-            - Centered
-            - Font sizes change
-            - Etc
+    - Radio button: show all, show 7/8s, show cross section
+- Side panel layout for settings
+    - Labels, look nice
+    - Dynamic CSS
+        - Centered
+        - Font sizes change
+        - Etc
 - Restore last applied rules from local storage
+    - "Save" button
+        - Saves all options
+    - "Load saved settings" button
+        - Restores settings from local storage
 - Options:
-    - Colors
-        - Allow input for colors
     - Speed
         - Tick modes?
     - "Wrap" mode?
@@ -21,5 +23,4 @@
     - Show bad input
 - Improve output in left bar
 - Rgb -> srgb in fragment shader
-- In PositionBased draw modes, don't do vertex darkening
 - OPTIMZE every small thing
