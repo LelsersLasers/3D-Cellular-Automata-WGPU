@@ -9,8 +9,6 @@
         - Centered
         - Font sizes change
         - Etc
-- Options:
-    - Per vertex lighting
 - Input check
     - Show bad input
 - Improve output in left bar

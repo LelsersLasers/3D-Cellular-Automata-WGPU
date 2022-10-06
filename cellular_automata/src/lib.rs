@@ -253,7 +253,7 @@ impl InstanceRaw {
     }
 }
 
-const VERTICES: &[Vertex] = &[
+const VERTICES_LIGHTING: &[Vertex] = &[
     Vertex {
         // A - top left
         position: [-0.5, 0.5, 0.],
@@ -283,6 +283,48 @@ const VERTICES: &[Vertex] = &[
         // F - bottom right - back
         position: [0.5, -0.5, -1.],
         light: 0.5,
+    },
+    Vertex {
+        // G - top left - back
+        position: [-0.5, 0.5, -1.],
+        light: 1.,
+    },
+    Vertex {
+        // H - bottom left - back
+        position: [-0.5, -0.5, -1.],
+        light: 1.,
+    },
+];
+const VERTICES_NO_LIGHTING: &[Vertex] = &[
+    Vertex {
+        // A - top left
+        position: [-0.5, 0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // B - bottom left
+        position: [-0.5, -0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // C - bottom right
+        position: [0.5, -0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // D - top right
+        position: [0.5, 0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // E - top right - back
+        position: [0.5, 0.5, -1.],
+        light: 1.,
+    },
+    Vertex {
+        // F - bottom right - back
+        position: [0.5, -0.5, -1.],
+        light: 1.,
     },
     Vertex {
         // G - top left - back
@@ -759,8 +801,8 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
+            contents: bytemuck::cast_slice(VERTICES_LIGHTING),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
@@ -1254,6 +1296,8 @@ pub async fn run() {
     let mut last_dc_start_color: [u32; 3] = [163, 190, 140];
     let mut last_dc_end_color: [u32; 3] = [191, 97, 106];
     let mut last_cd_max_color: [u32; 3] = [50, 235, 130];
+    
+    let mut last_vertex_lighting: bool = true;
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -1302,8 +1346,6 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            state.update();
-
             #[cfg(target_arch = "wasm32")]
             {
                 let document = web_sys::window().unwrap().document().unwrap();
@@ -1467,6 +1509,13 @@ pub async fn run() {
                     .collect();
                 let cd_max_color: [u32; 3] = [cd_max[0], cd_max[1], cd_max[2]];
 
+                let vertex_lighting: bool = document
+                    .get_element_by_id("vertex_lighting_input")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .checked();
+
                 if last_rule_state != rule_state {
                     state.state = rule_state;
                     state.update_state_rule(last_rule_state);
@@ -1524,7 +1573,25 @@ pub async fn run() {
                     state.reset();
                     last_reset_flag = reset_flag;
                 }
+                if last_vertex_lighting != vertex_lighting {
+                    state.queue.write_buffer(
+                        &state.vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(
+                            // TODO remove survival change
+                            if vertex_lighting {
+                                state.survival[0] = true;
+                                VERTICES_LIGHTING
+                            } else {
+                                state.survival[0] = false;
+                                VERTICES_NO_LIGHTING
+                            }
+                        ),
+                    );
+                    last_vertex_lighting = vertex_lighting;
+                }
             }
+            state.update();
             match state.render() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
