@@ -558,6 +558,8 @@ pub struct State {
     spawn: [bool; 27],
     moore_offsets: bool,
 
+    wrapped_mode: bool,
+
     cell_bounds: u32,
 
     draw_mode: DrawMode,
@@ -578,6 +580,7 @@ impl State {
             false, false,
         ];
         let moore_offsets = true;
+        let wrapped_mode = false;
         let cell_bounds = 96;
 
         let state_based = StateBased::DualColorDying([191, 97, 106]);
@@ -826,6 +829,7 @@ impl State {
             spawn,
             state,
             moore_offsets,
+            wrapped_mode,
             draw_mode,
             state_colors,
         }
@@ -883,11 +887,19 @@ impl State {
     }
     fn update(&mut self) {
         if !self.paused {
-            self.count_neighbors(if self.moore_offsets {
-                &M_OFFSETS
+            if self.wrapped_mode {
+                self.count_neighbors_wrapped(if self.moore_offsets {
+                    &M_OFFSETS
+                } else {
+                    &VN_OFFSETS
+                });
             } else {
-                &VN_OFFSETS
-            });
+                self.count_neighbors(if self.moore_offsets {
+                    &M_OFFSETS
+                } else {
+                    &VN_OFFSETS
+                });
+            }
             self.sync_cells();
             self.ticks += 1;
         }
@@ -1145,6 +1157,29 @@ impl State {
             }
         }
     }
+    fn count_neighbors_wrapped(&mut self, offsets: &[(i32, i32, i32)]) {
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    let one_idx = three_to_one(x, y, z, self.cell_bounds);
+                    self.cells[one_idx].neighbors = 0;
+                    for offset in offsets {
+                        if self.cells[three_to_one(
+                            // TODO: faster calc than rem_euclid() ??
+                            ((x as i32 + offset.0).rem_euclid(self.cell_bounds as i32)) as u32,
+                            ((y as i32 + offset.1).rem_euclid(self.cell_bounds as i32)) as u32,
+                            ((z as i32 + offset.2).rem_euclid(self.cell_bounds as i32)) as u32,
+                            self.cell_bounds,
+                        )]
+                        .get_alive(self.state)
+                        {
+                            self.cells[one_idx].neighbors += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
     fn sync_cells(&mut self) {
         for cell in self.cells.iter_mut() {
             cell.sync(self.survival, self.spawn, self.state);
@@ -1320,6 +1355,16 @@ pub async fn run() {
                     .parse()
                     .unwrap();
                 state.moore_offsets = rule_neighborhood;
+
+                let wrapped_mode: bool = document
+                    .get_element_by_id("wrap_neighborhood_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.wrapped_mode = wrapped_mode;
 
                 let draw_mode: String = document
                     .get_element_by_id("draw_mode_rust")

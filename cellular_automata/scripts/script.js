@@ -188,6 +188,7 @@ function resetCells() {
     resetFlag = !resetFlag;
     document.getElementById("reset_cells_rust").value = resetFlag;
 }
+
 function applySurvivalRule() {
     const survivalValue = document.getElementById("survival_rule_input").value;
     const survivalValueTrimmed = survivalValue.replace(/\s/g, '');
@@ -263,13 +264,18 @@ function applyNeighborhoodRule() {
     }
     document.getElementById("neighborhood_rule_rust").value = neigborhoodValue;
 }
+function applyWrappedMode() {
+    document.getElementById("wrap_neighborhood_rust").value = document.getElementById("wrap_neighborhood_input").checked;
+}
 function apply() {
     applySurvivalRule();
     applySpawnRule();
     applyStateRule();
     applyNeighborhoodRule();
     applyCellBounds();
+    applyWrappedMode();
 }
+
 function resizeCanvas() {
     const canvas = document.getElementsByTagName("canvas")[0];
     if (canvas) {
