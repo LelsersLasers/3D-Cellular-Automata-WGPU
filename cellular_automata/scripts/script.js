@@ -57,11 +57,13 @@ function load() {
         radioButtonsN[0].checked = false;
         radioButtonsN[1].checked = true;
     }
+    document.getElementById("wrap_neighborhood_input").checked = getFromLS(baseKey + "wrap_neighborhood_input", "false") == "true";
 
     setFromLoad("survival_rule_rust", "2,6,9");
     setFromLoad("spawn_rule_rust", "4,6,8,9");
     setFromLoad("state_rule_rust", "10");
     setFromLoad("neighborhood_rule_rust", "true");
+    setFromLoad("wrap_neighborhood_rust", "false");
 
     setFromLoad("cell_bounds_input", "96");
     setFromLoad("cell_bounds_rust", "96");
@@ -104,11 +106,13 @@ function save() {
     } else {
         setToLS(baseKey + "neighborhood_rule_input", "false");
     }
+    setToLS(baseKey + "wrap_neighborhood_input", document.getElementById("wrap_neighborhood_input").checked);
 
     setFromSave("survival_rule_rust");
     setFromSave("spawn_rule_rust");
     setFromSave("state_rule_rust");
     setFromSave("neighborhood_rule_rust");
+    setFromSave("wrap_neighborhood_rust")
 
     setFromSave("cell_bounds_input");
     setFromSave("cell_bounds_rust");

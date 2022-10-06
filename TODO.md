@@ -10,7 +10,6 @@
         - Font sizes change
         - Etc
 - Options:
-    - "Wrap" mode?
     - Per vertex lighting
 - Input check
     - Show bad input
