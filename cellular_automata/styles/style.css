@@ -53,9 +53,13 @@ input[type="radio"] {
 }
 input[type="checkbox"] {
     width: 0.8em;
+    height: 1em;
     padding: 0px;
+    margin: 0px;
+    vertical-align: middle;
+    position: relative;
     color: #ECEFF4;
-    /* outline: none !important; */
+    outline: none !important;
 }
 button {
     font-size: 1em;

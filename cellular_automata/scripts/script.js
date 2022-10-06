@@ -279,6 +279,5 @@ function resizeCanvas() {
         let height = Math.min(maxHeight, (maxWidth * 9) / 16);
         canvas.style.width = width + "px";
         canvas.style.height = height + "px";
-        console.log("Winwdow size:", window.innerWidth, window.innerHeight);
     }
 }
