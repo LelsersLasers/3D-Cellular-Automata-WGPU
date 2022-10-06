@@ -10,8 +10,6 @@
         - Font sizes change
         - Etc
 - Options:
-    - Speed
-        - Tick modes?
     - "Wrap" mode?
     - Per vertex lighting
 - Input check
