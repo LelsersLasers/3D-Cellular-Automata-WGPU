@@ -33,8 +33,13 @@
             <br />
             <input type="radio" id="VonNeumann" name="neigborhood" value="false">
             <label for="VonNeumann">Von Neumann</label>
-            <br class="spacing" />
+            
+            <br class="spacing"/>
 
+            <label for="wrap_neighborhood_input">Wrap Neighborhood:</label>
+            <input type="checkbox" id="wrap_neighborhood_input" />
+
+            <br class="spacing" />
             <br />
 
             <label for="cell_bounds_input">Cell bounds:</label>
@@ -64,6 +69,39 @@
             <br />
             <input type="radio" id="CenterDist" name="draw_mode" value="CenterDist">
             <label for="CenterDist">Center Distance</label>
+
+            <br class="spacing" />
+            <br />
+
+            <div id="DualColorDying_color">
+                <label for="dcd_alive_color">Alive Color:</label>
+                <input type="text" id="dcd_alive_color" value="191, 97, 106" />
+            </div>
+
+            <div id="SingleColor_color" hidden>
+                <label for="sc_start_color">Start Color:</label>
+                <input type="text" id="sc_start_color" value="255, 20, 20" />
+            </div>
+
+            <div id="DualColor_color" hidden>
+                <label for="dc_start_color">Start Color:</label>
+                <input type="text" id="dc_start_color" value="163, 190, 140" />
+                <br class="spacing" />
+                <label for="dc_end_color">End Color:</label>
+                <input type="text" id="dc_end_color" value="191, 97, 106" />
+            </div>
+
+            <div id="RGB_color" hidden></div>
+
+            <div id="CenterDist_color" hidden>
+                <label for="cd_max_color">Max Distance Color:</label>
+                <input type="text" id="cd_max_color" value="50, 235, 130" />
+            </div>
+
+            <br class="spacing" />
+
+            <label for="vertex_lighting_input">Per Vertex lighting:</label>
+            <input type="checkbox" id="vertex_lighting_input" checked/>
             
             <hr />
 
@@ -72,6 +110,11 @@
 
             <button onclick="resetCells()">Reset</button>
             <button id="crossSectionButton" onclick="toggleCrossSection()">Toggle cross section [off]</button>
+
+            <hr />
+
+            <button onclick="save()">Save</button>
+            <button onclick="load()">Load</button>
         </div>
 
     </div>
@@ -83,8 +126,16 @@
         <input type="hidden" id="state_rule_rust" value="10" />
         <input type="hidden" id="neighborhood_rule_rust" value="true" />
 
+        <input type="hidden" id="wrap_neighborhood_rust" value="false" />
+
         <input type="hidden" id="cell_bounds_rust" value="96" />
         <input type="hidden" id="draw_mode_rust" value="DualColorDying" />
+
+        <input type="hidden" id="dcd_alive_color_rust" value="191,97,106" />
+        <input type="hidden" id="sc_start_color_rust" value="255,20,20" />
+        <input type="hidden" id="dc_start_color_rust" value="163,190,140" />
+        <input type="hidden" id="dc_end_color_rust" value="191,97,106" />
+        <input type="hidden" id="cd_max_color_rust" value="50,235,130" />
 
         <input type="hidden" id="paused_rust" value="false" />
         <input type="hidden" id="reset_cells_rust" value="false" />
@@ -98,240 +149,8 @@
         resizeCanvas();
     });
   </script>
-  <script>
-        let paused = false;
-        let crossSection = false;
-        let resetFlag = false;
-
-        document.querySelectorAll('input[type=radio][name="draw_mode"]').forEach(
-            (radio) => {
-                radio.addEventListener('change', () => {
-                    document.getElementById("draw_mode_rust").value = document.querySelector('input[type=radio][name="draw_mode"]:checked').value;
-                });
-            }
-        );
-        
-        function togglePause() {
-            paused = !paused;
-            if (paused) {
-                document.getElementById("pauseButton").innerHTML = "Resume";
-            } else {
-                document.getElementById("pauseButton").innerHTML = "Pause";
-            }
-            document.getElementById("paused_rust").value = paused;
-        }
-        function toggleCrossSection() {
-            crossSection = !crossSection;
-            if (crossSection) {
-                document.getElementById("crossSectionButton").innerHTML = "Toggle cross section [on]";
-            } else {
-                document.getElementById("crossSectionButton").innerHTML = "Toggle cross section [off]";
-            }
-            document.getElementById("cross_section_rust").value = crossSection;
-        }
-        function resetCells() {
-            resetFlag = !resetFlag;
-            document.getElementById("reset_cells_rust").value = resetFlag;
-        }
-        function applySurvivalRule() {
-            const survivalValue = document.getElementById("survival_rule_input").value;
-            const survivalValueTrimmed = survivalValue.replace(/\s/g, '');
-            let survivalValueSplit = survivalValueTrimmed.split(",");
-            for (let i = 0; i < survivalValueSplit.length; i++) {
-                let survivalValueSplitInt = parseInt(survivalValueSplit[i]);
-                if (isNaN(survivalValueSplitInt) || survivalValueSplitInt < 0) {
-                    document.getElementById("survival_rule_input").style.border = "2px solid #BF616A";
-                    alert("Survival must be a list of positive integers seperated by commas (ex: '2,6,9')");
-                    return;
-                }
-                survivalValueSplit[i] = survivalValueSplitInt;
-            }
-            survivalValueSplit.sort();
-            survivalValueStr = survivalValueSplit.join(",");
-            document.getElementById("survival_rule_rust").value = survivalValueStr;
-            document.getElementById("survival_rule_input").value = survivalValueStr;
-            document.getElementById("survival_rule_input").style.border = "none";
-        }
-        function applySpawnRule() {
-            const spawnValue = document.getElementById("spawn_rule_input").value;
-            const spawnValueTrimmed = spawnValue.replace(/\s/g, '');
-            let spawnValueSplit = spawnValueTrimmed.split(",");
-            for (let i = 0; i < spawnValueSplit.length; i++) {
-                const spawnValueSplitInt = parseInt(spawnValueSplit[i]);
-                if (isNaN(spawnValueSplitInt) || spawnValueSplitInt < 0) {
-                    document.getElementById("spawn_rule_input").style.border = "2px solid #BF616A";
-                    alert("Spawn must be a list of positive integers seperated by commas (ex: '4,6,8,9')");
-                    return;
-                }
-                spawnValueSplit[i] = spawnValueSplitInt;
-            }
-            spawnValueSplit.sort();
-            spawnValueStr = spawnValueSplit.join(",");
-            document.getElementById("spawn_rule_rust").value = spawnValueStr;
-            document.getElementById("spawn_rule_input").value = spawnValueStr;
-            document.getElementById("spawn_rule_input").style.border = "none";
-        }
-        function applyStateRule() {
-            const stateValue = document.getElementById("state_rule_input").value;
-            const stateValueInt = parseInt(stateValue);
-            if (isNaN(stateValueInt) || stateValueInt < 0) {
-                document.getElementById("state_rule_input").style.border = "2px solid #BF616A";
-                alert("State must be a positive integer (ex: '10')");
-            }
-            else {
-                document.getElementById("state_rule_input").value = stateValueInt;
-                document.getElementById("state_rule_rust").value = stateValueInt;
-                document.getElementById("state_rule_input").style.border = "none";
-            }
-        }
-        function applyCellBounds() {
-            const cellBoundsValue = document.getElementById("cell_bounds_input").value;
-            const cellBoundsValueInt = parseInt(cellBoundsValue);
-            if (isNaN(cellBoundsValueInt) || cellBoundsValueInt < 0) {
-                document.getElementById("cell_bounds_input").style.border = "2px solid #BF616A";
-                alert("Cell bounds must be a positive integer (ex: '96')");
-            }
-            else {
-                document.getElementById("cell_bounds_input").value = cellBoundsValueInt;
-                document.getElementById("cell_bounds_rust").value = cellBoundsValueInt;
-                document.getElementById("cell_bounds_input").style.border = "none";
-            }
-        }
-        function applyNeighborhoodRule() {
-            const radioButtons = document.querySelectorAll('input[name="neigborhood"]');
-            let neigborhoodValue;
-            for (const radioButton of radioButtons) {
-                if (radioButton.checked) {
-                    neigborhoodValue = radioButton.value;
-                    break;
-                }
-            }
-            document.getElementById("neighborhood_rule_rust").value = neigborhoodValue;
-        }
-        function apply() {
-            applySurvivalRule();
-            applySpawnRule();
-            applyStateRule();
-            applyNeighborhoodRule();
-            applyCellBounds();
-        }
-        function resizeCanvas() {
-            const canvas = document.getElementsByTagName("canvas")[0];
-            if (canvas) {
-                let maxWidth = (window.innerWidth - 50) * 0.75;
-                let maxHeight = window.innerHeight - 4;
-                let width = Math.min(maxWidth, (maxHeight * 16) / 9);
-                let height = Math.min(maxHeight, (maxWidth * 9) / 16);
-                canvas.style.width = width + "px";
-                canvas.style.height = height + "px";
-                console.log("Winwdow size:", window.innerWidth, window.innerHeight);
-            }
-        }
-  </script>
-  <style>
-        .flex-container {
-            display: flex;
-        }
-        .spacing {
-            content: "";
-            display: block;
-            margin: 0.5em;
-        }
-        html {
-            font-family:'Courier New';
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #2b313f;
-        }
-        div {
-            margin: 0;
-            padding: 0;
-            /* border: 1px solid red; */
-        }
-        hr {
-            background-color: #ECEFF4;
-            border: none;
-            height: 1px;
-            border-radius: 10px;
-        }
-        label {
-            color: #ECEFF4;
-            height: 1.2em;
-            font-size: 1em;
-            cursor: pointer;
-        }
-        input {
-            height: 1.2em;
-            font-size: 1em;
-            padding: 0.8em 0.5em;
-            box-sizing: border-box;
-            background-color: #4C566A;
-            color: #ECEFF4;
-            border-radius: 7px;
-            width: 100%;
-            border: none;
-            outline: none !important;
-        }
-        input:focus {
-            outline: 2px solid #EBCB8B !important;
-        }
-        input[type="radio"] {
-            width: 0.8em;
-            color: #ECEFF4;
-            outline: none !important;
-        }
-        /* input[type="radio"]:focus {
-            outline: none !important;
-        } */
-        button {
-            font-size: 1em;
-            border: none;
-            padding: 0.2em 2em;
-            background-color: #5E81AC;
-            color: #ECEFF4;
-            cursor: pointer;
-            border-radius: 7px;
-            width: 100%;
-            margin-bottom: 0.5em;
-            outline: none;
-        }
-        button:focus {
-            outline: 2px solid #EBCB8B;
-        }
-        #add_canvas_to {
-            flex: 4;
-            margin: 0 auto;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center; 
-        }
-        #main_stuff {
-            width: 100%;
-            height: 100vh;
-        }
-        #settings {
-            padding: 2em;
-            flex: 1;
-            margin: 1em;
-            border-radius: 1em;
-            background-color: #3B4252;
-            overflow: auto;
-        }
-        canvas {
-            background-color: #2b313f;
-            outline: 2px solid #B48EAD;
-            margin: 0 auto;
-            padding: 0;
-            padding-left: 10px;
-            border-radius: 0.5em;
-        }
-        canvas:focus {
-            outline: 2px solid #EBCB8B;
-        }
-  </style>
+  <script type="text/javascript" src="scripts/script.js"></script>
+  <link rel="stylesheet" href="styles/style.css">
 </body>
 
 </html>
