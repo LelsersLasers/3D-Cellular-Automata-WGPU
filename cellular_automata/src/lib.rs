@@ -1003,8 +1003,10 @@ impl State {
                 spawn_text.push_str(&i.to_string());
                 spawn_text.push_str(",");
             }
-            // TODO: not do last comma
         }
+        survival_text.pop();
+        spawn_text.pop();
+        
         let neighborhood_text = if self.moore_offsets {
             "Moore"
         } else {

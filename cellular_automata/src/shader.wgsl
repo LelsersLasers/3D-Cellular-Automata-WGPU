@@ -41,11 +41,7 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
     return out;
 }
 
-fn rgb_to_srgb(color: vec3<f32>) -> vec3<f32> {
-    return pow(color / 255.0, vec3<f32>(2.2));
-}
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4(rgb_to_srgb(in.color), 1.0);
+    return vec4(pow(in.color / 255.0, vec3<f32>(2.2)), 1.0);
 }
