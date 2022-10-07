@@ -68,9 +68,9 @@ impl Cell {
         Instance {
             position: self.position,
             color: [
-                rgb_to_srgb((self.position.x + offset) / cell_bounds as f32 * 255.),
-                rgb_to_srgb((self.position.y + offset) / cell_bounds as f32 * 255.),
-                rgb_to_srgb((self.position.z + offset) / cell_bounds as f32 * 255.),
+                (self.position.x + offset) / cell_bounds as f32 * 255.,
+                (self.position.y + offset) / cell_bounds as f32 * 255.,
+                (self.position.z + offset) / cell_bounds as f32 * 255.,
             ],
         }
     }
@@ -81,9 +81,9 @@ impl Cell {
         Instance {
             position: self.position,
             color: [
-                rgb_to_srgb(intensity * max_color[0] as f32),
-                rgb_to_srgb(intensity * max_color[1] as f32),
-                rgb_to_srgb(intensity * max_color[2] as f32),
+                intensity * max_color[0] as f32,
+                intensity * max_color[1] as f32,
+                intensity * max_color[2] as f32,
             ],
         }
     }
@@ -117,60 +117,47 @@ impl StateBased {
         for i in 0..state_rule {
             colors.push(match self {
                 StateBased::DualColor(start_color, end_color) => [
-                    rgb_to_srgb(
-                        start_color[0] as f32
-                            + ((end_color[0] as f32 - start_color[0] as f32)
-                                / (state_rule + 1) as f32)
-                                * (i + 1) as f32,
-                    ),
-                    rgb_to_srgb(
-                        start_color[1] as f32
-                            + ((end_color[1] as f32 - start_color[1] as f32)
-                                / (state_rule + 1) as f32)
-                                * (i + 1) as f32,
-                    ),
-                    rgb_to_srgb(
-                        start_color[2] as f32
-                            + ((end_color[2] as f32 - start_color[2] as f32)
-                                / (state_rule + 1) as f32)
-                                * (i + 1) as f32,
-                    ),
+                    start_color[0] as f32
+                        + ((end_color[0] as f32 - start_color[0] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
+                    start_color[1] as f32
+                        + ((end_color[1] as f32 - start_color[1] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
+                    start_color[2] as f32
+                        + ((end_color[2] as f32 - start_color[2] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
                 ],
                 StateBased::DualColorDying(_alive_color) => {
                     let intensity = (i + 1) as f32 / (state_rule + 2) as f32;
                     let brightness = intensity * 255.;
-                    [
-                        rgb_to_srgb(brightness),
-                        rgb_to_srgb(brightness),
-                        rgb_to_srgb(brightness),
-                    ]
+                    [brightness, brightness, brightness]
                 }
                 StateBased::SingleColor(start_color) => {
                     let intensity =
                         3. / (state_rule + 3) as f32 + i as f32 / (state_rule + 3) as f32;
                     [
-                        rgb_to_srgb(intensity * start_color[0] as f32),
-                        rgb_to_srgb(intensity * start_color[1] as f32),
-                        rgb_to_srgb(intensity * start_color[2] as f32),
+                        intensity * start_color[0] as f32,
+                        intensity * start_color[1] as f32,
+                        intensity * start_color[2] as f32,
                     ]
                 }
             });
         }
         colors.push(match self {
             StateBased::DualColor(start_color, _end_color) => [
-                rgb_to_srgb(start_color[0] as f32),
-                rgb_to_srgb(start_color[1] as f32),
-                rgb_to_srgb(start_color[2] as f32),
+                start_color[0] as f32,
+                start_color[1] as f32,
+                start_color[2] as f32,
             ],
             StateBased::DualColorDying(alive_color) => [
-                rgb_to_srgb(alive_color[0] as f32),
-                rgb_to_srgb(alive_color[1] as f32),
-                rgb_to_srgb(alive_color[2] as f32),
+                alive_color[0] as f32,
+                alive_color[1] as f32,
+                alive_color[2] as f32,
             ],
             StateBased::SingleColor(start_color) => [
-                rgb_to_srgb(start_color[0] as f32),
-                rgb_to_srgb(start_color[1] as f32),
-                rgb_to_srgb(start_color[2] as f32),
+                start_color[0] as f32,
+                start_color[1] as f32,
+                start_color[2] as f32,
             ],
         });
 
@@ -407,9 +394,6 @@ fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32), cell_bounds: u32) 
         && y as i32 + offset.1 < cell_bounds as i32
         && z as i32 + offset.2 >= 0
         && z as i32 + offset.2 < cell_bounds as i32
-}
-fn rgb_to_srgb(rgb: f32) -> f32 {
-    (rgb / 255.).powf(2.2)
 }
 
 struct Camera {
@@ -1296,7 +1280,7 @@ pub async fn run() {
     let mut last_dc_start_color: [u32; 3] = [163, 190, 140];
     let mut last_dc_end_color: [u32; 3] = [191, 97, 106];
     let mut last_cd_max_color: [u32; 3] = [50, 235, 130];
-    
+
     let mut last_vertex_lighting: bool = true;
 
     #[cfg(target_arch = "wasm32")]
@@ -1577,13 +1561,11 @@ pub async fn run() {
                     state.queue.write_buffer(
                         &state.vertex_buffer,
                         0,
-                        bytemuck::cast_slice(
-                            if vertex_lighting {
-                                VERTICES_LIGHTING
-                            } else {
-                                VERTICES_NO_LIGHTING
-                            }
-                        ),
+                        bytemuck::cast_slice(if vertex_lighting {
+                            VERTICES_LIGHTING
+                        } else {
+                            VERTICES_NO_LIGHTING
+                        }),
                     );
                     last_vertex_lighting = vertex_lighting;
                 }

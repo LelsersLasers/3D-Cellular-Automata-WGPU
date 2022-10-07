@@ -12,5 +12,4 @@
 - Input check
     - Show bad input
 - Improve output in left bar
-- Rgb -> srgb in fragment shader
 - OPTIMZE every small thing
