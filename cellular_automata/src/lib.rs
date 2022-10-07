@@ -1578,12 +1578,9 @@ pub async fn run() {
                         &state.vertex_buffer,
                         0,
                         bytemuck::cast_slice(
-                            // TODO remove survival change
                             if vertex_lighting {
-                                state.survival[0] = true;
                                 VERTICES_LIGHTING
                             } else {
-                                state.survival[0] = false;
                                 VERTICES_NO_LIGHTING
                             }
                         ),

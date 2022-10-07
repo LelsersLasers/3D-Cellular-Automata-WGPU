@@ -91,6 +91,7 @@ function load() {
     setFromLoad("dc_start_color_rust", "255,20,20");
     setFromLoad("dc_end_color_rust", "191,97,106");
     setFromLoad("cd_max_color_rust", "50,235,130");
+    document.getElementById("vertex_lighting_input").checked = getFromLS(baseKey + "vertex_lighting_input", "true") == "true";
 
     apply();
     resetCells();
@@ -139,6 +140,8 @@ function save() {
     setFromSave("dc_start_color_rust");
     setFromSave("dc_end_color_rust");
     setFromSave("cd_max_color_rust");
+
+    setToLS(baseKey + "vertex_lighting_input", document.getElementById("vertex_lighting_input").checked);
 }
 
 
