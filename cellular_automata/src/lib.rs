@@ -15,9 +15,6 @@ use rayon::prelude::*;
 
 mod texture;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 struct ToggleKey {
     was_down: bool,
 }
@@ -501,19 +498,11 @@ impl State {
             .await
         {
             Some(adapter) => adapter,
-            None => {
-                cfg_if::cfg_if! {
-                    if #[cfg(target_arch = "wasm32")] {
-                        panic!("No adapter found")
-                    } else {
-                        instance
-                            .enumerate_adapters(wgpu::Backends::all())
-                            .filter(|adapter| surface.get_supported_formats(&adapter).len() > 0)
-                            .next()
-                            .unwrap()
-                    }
-                }
-            }
+            None => instance
+                .enumerate_adapters(wgpu::Backends::all())
+                .filter(|adapter| surface.get_supported_formats(&adapter).len() > 0)
+                .next()
+                .unwrap(),
         };
         let backend = adapter.get_info().backend;
         println!("Current backend:: {:#?}", backend);
@@ -526,11 +515,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
+                    limits: wgpu::Limits::default(),
                     label: None,
                 },
                 None,
@@ -1104,16 +1089,8 @@ impl State {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
-        } else {
-            env_logger::init();
-        }
-    }
+    env_logger::init();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -1122,22 +1099,6 @@ pub async fn run() {
         .with_resizable(true)
         .build(&event_loop)
         .unwrap();
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
-
-        use winit::platform::web::WindowExtWebSys;
-        web_sys::window()
-            .and_then(|win| win.document())
-            .and_then(|doc| {
-                let dst = doc.get_element_by_id("body")?;
-                let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
-                Some(())
-            })
-            .expect("Couldn't add canvas to doc");
-    }
 
     let mut state = State::new(&window).await;
 
