@@ -3,6 +3,8 @@
 
 The branches are very messy... I recommend you get latest working downloads from itch.io: https://lelserslasers.itch.io/3d-cellular-automata-wgpu-rust (and because it runs on the web, you can try it without downloading it).
 
+https://user-images.githubusercontent.com/48894200/221646009-ff042dd2-a918-4541-ab0c-a964067a7d6a.mp4
+
 Current branches:
 - SetRuleFromHTML:
   - The web version
