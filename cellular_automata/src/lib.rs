@@ -17,6 +17,7 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
 
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -411,6 +412,7 @@ struct Camera {
 
     turn_speed: f64,
     zoom_speed: f64,
+    drag_speed: f64,
 
     up_down: bool,
     down_down: bool,
@@ -418,6 +420,9 @@ struct Camera {
     right_down: bool,
     forward_down: bool,
     backward_down: bool,
+
+    lmb_down: bool,
+    last_mouse_pos: (f64, f64),
 }
 impl Camera {
     fn build_view_projection_matrix(&self) -> cgmath::Matrix4<f32> {
@@ -464,6 +469,29 @@ impl Camera {
                     }
                     _ => false,
                 }
+            }
+            &WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                self.lmb_down = state == ElementState::Pressed;
+                true
+            }
+            &WindowEvent::CursorMoved {
+                position,
+                ..
+            } => {
+                if self.lmb_down {
+                    let (x, y) = (position.x, position.y);
+                    let (dx, dy) = (x - self.last_mouse_pos.0, y - self.last_mouse_pos.1);
+                    self.lon -= dx * self.drag_speed;
+                    self.lat += dy * self.drag_speed;
+                    self.update_eye();
+                    self.last_mouse_pos = (position.x, position.y);
+                }
+                self.last_mouse_pos = (position.x, position.y);
+                true
             }
             _ => false,
         }
@@ -693,6 +721,8 @@ impl State {
             right_down: false,
             forward_down: false,
             backward_down: false,
+            lmb_down: false,
+            last_mouse_pos: (0., 0.),
         };
         camera.update_eye();
 
