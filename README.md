@@ -6,10 +6,10 @@ The branches are very messy... I recommend you get latest working downloads from
 https://user-images.githubusercontent.com/48894200/221646009-ff042dd2-a918-4541-ab0c-a964067a7d6a.mp4
 
 Current branches:
-- SetRuleFromHTML:
+- main:
   - The web version
   - Has an HTML/CSS/JS UI for changing the simulation rule and draw mode
-    - Not present in the otherversion
+    - Not present in the other versions
   - Works in almost all browsers
 - ComputeShader:
   - Uses compute shaders
