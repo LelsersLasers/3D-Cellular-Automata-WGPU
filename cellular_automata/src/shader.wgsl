@@ -8,6 +8,7 @@ var<uniform> camera: CameraUniform;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
+    @location(1) light: f32,
 }
 
 struct InstanceInput {
@@ -34,7 +35,7 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
         instance.model_matrix_3,
     );
     var out: VertexOutput;
-    out.color = instance.color;
+    out.color = instance.color * model.light;
     out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
     out.clip_position = out.clip_position * camera.transform;
     return out;
@@ -42,5 +43,5 @@ fn vs_main(model: VertexInput, instance: InstanceInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4(in.color, 1.0);
+    return vec4(pow(in.color / 255.0, vec3<f32>(2.2)), 1.0);
 }

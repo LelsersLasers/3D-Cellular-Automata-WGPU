@@ -14,39 +14,33 @@ mod texture;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-struct ToggleKey {
-    was_down: bool,
-}
-impl ToggleKey {
-    pub fn new() -> Self {
-        Self { was_down: false }
-    }
-    fn down(&mut self, state: bool) -> bool {
-        if !self.was_down && state {
-            self.was_down = true;
-            return true;
-        } else if !state {
-            self.was_down = false;
-        }
-        false
-    }
-}
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
+    light: f32,
 }
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x3,
-            }],
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32,
+                },
+            ],
         }
     }
 }
@@ -65,41 +59,122 @@ impl Cell {
             neighbors: 0,
         }
     }
-    fn get_color(&self) -> [f32; 3] {
-        if self.hp == STATE as i32 {
-            ALIVE_COLOR
-        } else {
-            let intensity = (1. + self.hp as f32) / (STATE as f32);
-            [
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[0] - DEAD_COLOR[0]) as f32 + DEAD_COLOR[0] as f32,
-                ),
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[1] - DEAD_COLOR[1]) as f32 + DEAD_COLOR[1] as f32,
-                ),
-                rgb_to_srgb(
-                    intensity * (DYING_COLOR[2] - DEAD_COLOR[2]) as f32 + DEAD_COLOR[2] as f32,
-                ),
-            ]
-        }
-    }
-    fn create_instance(&self) -> Instance {
+    fn create_instance_state_based(&self, colors: &[[f32; 3]]) -> Instance {
         Instance {
             position: self.position,
-            color: self.get_color(),
+            color: colors[self.hp as usize],
         }
     }
-    fn get_alive(&self) -> bool {
-        self.hp == STATE as i32
+    fn create_instance_rgb_cube(&self, cell_bounds: u32, offset: f32) -> Instance {
+        Instance {
+            position: self.position,
+            color: [
+                (self.position.x + offset) / cell_bounds as f32 * 255.,
+                (self.position.y + offset) / cell_bounds as f32 * 255.,
+                (self.position.z + offset) / cell_bounds as f32 * 255.,
+            ],
+        }
+    }
+    fn create_instance_center_dist(&self, offset: f32, max_color: &[u32; 3]) -> Instance {
+        let dist =
+            (self.position.x.powi(2) + self.position.y.powi(2) + self.position.z.powi(2)).sqrt();
+        let intensity = 2. / (offset * 3f32.sqrt() + 2.) + dist / (offset * 3f32.sqrt() + 2.);
+        Instance {
+            position: self.position,
+            color: [
+                intensity * max_color[0] as f32,
+                intensity * max_color[1] as f32,
+                intensity * max_color[2] as f32,
+            ],
+        }
+    }
+    fn get_alive(&self, state: u32) -> bool {
+        self.hp == state as i32
     }
     fn should_draw(&self) -> bool {
         self.hp >= 0
     }
-    fn sync(&mut self) {
-        self.hp = (self.hp == STATE as i32) as i32 * (self.hp - 1 + SURVIVAL[self.neighbors as usize] as i32) + // alive
-            (self.hp < 0) as i32 * (SPAWN[self.neighbors as usize] as i32 * (STATE + 1) as i32 - 1) +  // dead
-            (self.hp >= 0 && self.hp < STATE as i32) as i32 * (self.hp - 1); // dying
+    fn sync(&mut self, survival: [bool; 27], spawn: [bool; 27], state: u32) {
+        self.hp = (self.hp == state as i32) as i32 * (self.hp - 1 + survival[self.neighbors as usize] as i32) + // alive
+            (self.hp < 0) as i32 * (spawn[self.neighbors as usize] as i32 * (state + 1) as i32 - 1) +  // dead
+            (self.hp >= 0 && self.hp < state as i32) as i32 * (self.hp - 1); // dying
     }
+    fn update_state_rule(&mut self, old_state: u32, new_state: u32) {
+        self.hp = (self.hp < 0) as i32 * -1
+            + (self.hp >= 0) as i32
+                * (self.hp as f32 * (new_state as f32 / old_state as f32)) as i32;
+    }
+}
+
+#[derive(Clone, Copy)]
+enum StateBased {
+    DualColor([u32; 3], [u32; 3]),
+    DualColorDying([u32; 3]),
+    SingleColor([u32; 3]),
+}
+impl StateBased {
+    fn create_colors(&self, state_rule: u32) -> Vec<[f32; 3]> {
+        let mut colors: Vec<[f32; 3]> = Vec::new();
+        for i in 0..state_rule {
+            colors.push(match self {
+                StateBased::DualColor(start_color, end_color) => [
+                    start_color[0] as f32
+                        + ((end_color[0] as f32 - start_color[0] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
+                    start_color[1] as f32
+                        + ((end_color[1] as f32 - start_color[1] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
+                    start_color[2] as f32
+                        + ((end_color[2] as f32 - start_color[2] as f32) / (state_rule + 1) as f32)
+                            * (i + 1) as f32,
+                ],
+                StateBased::DualColorDying(_alive_color) => {
+                    let intensity = (i + 1) as f32 / (state_rule + 2) as f32;
+                    let brightness = intensity * 255.;
+                    [brightness, brightness, brightness]
+                }
+                StateBased::SingleColor(start_color) => {
+                    let intensity =
+                        3. / (state_rule + 3) as f32 + i as f32 / (state_rule + 3) as f32;
+                    [
+                        intensity * start_color[0] as f32,
+                        intensity * start_color[1] as f32,
+                        intensity * start_color[2] as f32,
+                    ]
+                }
+            });
+        }
+        colors.push(match self {
+            StateBased::DualColor(start_color, _end_color) => [
+                start_color[0] as f32,
+                start_color[1] as f32,
+                start_color[2] as f32,
+            ],
+            StateBased::DualColorDying(alive_color) => [
+                alive_color[0] as f32,
+                alive_color[1] as f32,
+                alive_color[2] as f32,
+            ],
+            StateBased::SingleColor(start_color) => [
+                start_color[0] as f32,
+                start_color[1] as f32,
+                start_color[2] as f32,
+            ],
+        });
+
+        colors
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PositionBased {
+    RgbCube(),
+    CenterDist([u32; 3]),
+}
+
+enum DrawMode {
+    StateBased(StateBased),
+    PositionBased(PositionBased),
 }
 
 #[derive(Clone, Copy)]
@@ -123,6 +198,12 @@ struct InstanceRaw {
     color: [f32; 3],
 }
 impl InstanceRaw {
+    fn default() -> Self {
+        Self {
+            model: cgmath::Matrix4::identity().into(),
+            color: [0., 0., 0.],
+        }
+    }
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         use std::mem;
         wgpu::VertexBufferLayout {
@@ -160,97 +241,103 @@ impl InstanceRaw {
     }
 }
 
-const VERTICES: &[Vertex] = &[
+const VERTICES_LIGHTING: &[Vertex] = &[
     Vertex {
         // A - top left
         position: [-0.5, 0.5, 0.],
+        light: 0.5,
     },
     Vertex {
         // B - bottom left
         position: [-0.5, -0.5, 0.],
+        light: 1.,
     },
     Vertex {
         // C - bottom right
         position: [0.5, -0.5, 0.],
+        light: 1.,
     },
     Vertex {
         // D - top right
         position: [0.5, 0.5, 0.],
+        light: 1.,
     },
     Vertex {
-        // E - top right - left face
+        // E - top right - back
         position: [0.5, 0.5, -1.],
+        light: 1.,
     },
     Vertex {
-        // F - bottom right - left face
+        // F - bottom right - back
         position: [0.5, -0.5, -1.],
+        light: 0.5,
     },
     Vertex {
-        // G - top left - right face
+        // G - top left - back
         position: [-0.5, 0.5, -1.],
+        light: 1.,
     },
     Vertex {
-        // H - bottom left - right face
+        // H - bottom left - back
         position: [-0.5, -0.5, -1.],
+        light: 1.,
     },
+];
+const VERTICES_NO_LIGHTING: &[Vertex] = &[
     Vertex {
-        // G - top left - top face
-        position: [-0.5, 0.5, -1.],
-    },
-    Vertex {
-        // A - bottom left - top face
+        // A - top left
         position: [-0.5, 0.5, 0.],
+        light: 1.,
     },
     Vertex {
-        // D - bottom right - top face
-        position: [0.5, 0.5, 0.],
-    },
-    Vertex {
-        // E - top right - top face
-        position: [0.5, 0.5, -1.],
-    },
-    Vertex {
-        // F - top left - bottom face
-        position: [0.5, -0.5, -1.],
-    },
-    Vertex {
-        // C - bottom left - bottom face
-        position: [0.5, -0.5, 0.],
-    },
-    Vertex {
-        // B - bottom right - bottom face
+        // B - bottom left
         position: [-0.5, -0.5, 0.],
+        light: 1.,
     },
     Vertex {
-        // H - top right - bottom face
+        // C - bottom right
+        position: [0.5, -0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // D - top right
+        position: [0.5, 0.5, 0.],
+        light: 1.,
+    },
+    Vertex {
+        // E - top right - back
+        position: [0.5, 0.5, -1.],
+        light: 1.,
+    },
+    Vertex {
+        // F - bottom right - back
+        position: [0.5, -0.5, -1.],
+        light: 1.,
+    },
+    Vertex {
+        // G - top left - back
+        position: [-0.5, 0.5, -1.],
+        light: 1.,
+    },
+    Vertex {
+        // H - bottom left - back
         position: [-0.5, -0.5, -1.],
+        light: 1.,
     },
 ];
 const INDICES: &[u16] = &[
-    0, 1, 2, 0, 2, 3, 3, 2, 5, 3, 5, 4, 6, 7, 1, 6, 1, 0, 4, 5, 7, 4, 7, 6, 8, 9, 10, 8, 10, 11,
-    12, 13, 14, 12, 14, 15,
+    0, 1, 2, 0, 2, 3, // front face
+    3, 2, 5, 3, 5, 4, // right face
+    4, 5, 7, 4, 7, 6, // back face
+    6, 7, 1, 6, 1, 0, // left face
+    6, 0, 3, 6, 3, 4, // top face
+    2, 1, 7, 5, 2, 7, // bottom face
 ];
-
-const CELL_BOUNDS: u32 = 96;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    CELL_BOUNDS as f32 * 0.5,
-    CELL_BOUNDS as f32 * 0.5,
-    CELL_BOUNDS as f32 * 0.5,
-);
 
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
 );
 
-const STATE: u32 = 10;
-const SURVIVAL: [bool; 27] = [
-    false, false, true, false, false, false, true, false, false, true, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-];
-const SPAWN: [bool; 27] = [
-    false, false, false, false, true, false, true, false, true, true, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-];
 const ALIVE_CHANCE_ON_START: f32 = 0.15;
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.023104,
@@ -258,11 +345,8 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     b: 0.047776,
     a: 1.,
 };
-const ALIVE_COLOR: [f32; 3] = [0.529523, 0.119264, 0.144972];
-const DEAD_COLOR: [u8; 3] = [76, 86, 106];
-const DYING_COLOR: [u8; 3] = [216, 222, 233];
 const TEXT_COLOR: [f32; 4] = [0.84337, 0.867136, 0.907547, 1.];
-const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
+const M_OFFSETS: [(i32, i32, i32); 26] = [
     (1, 0, 0),
     (-1, 0, 0),
     (0, 1, 0),
@@ -290,22 +374,27 @@ const NEIGHBOR_OFFSETS: [(i32, i32, i32); 26] = [
     (1, -1, -1),
     (-1, -1, -1),
 ];
+const VN_OFFSETS: [(i32, i32, i32); 6] = [
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+    (0, 0, 1),
+    (0, 0, -1),
+];
 
-fn three_to_one(x: u32, y: u32, z: u32) -> usize {
+fn three_to_one(x: u32, y: u32, z: u32, cell_bounds: u32) -> usize {
     z as usize
-        + y as usize * CELL_BOUNDS as usize
-        + x as usize * CELL_BOUNDS as usize * CELL_BOUNDS as usize
+        + y as usize * cell_bounds as usize
+        + x as usize * cell_bounds as usize * cell_bounds as usize
 }
-fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32)) -> bool {
+fn valid_idx(x: u32, y: u32, z: u32, offset: (i32, i32, i32), cell_bounds: u32) -> bool {
     x as i32 + offset.0 >= 0
-        && x as i32 + offset.0 < CELL_BOUNDS as i32
+        && x as i32 + offset.0 < cell_bounds as i32
         && y as i32 + offset.1 >= 0
-        && y as i32 + offset.1 < CELL_BOUNDS as i32
+        && y as i32 + offset.1 < cell_bounds as i32
         && z as i32 + offset.2 >= 0
-        && z as i32 + offset.2 < CELL_BOUNDS as i32
-}
-fn rgb_to_srgb(rgb: f32) -> f32 {
-    (rgb as f32 / 255.).powf(2.2)
+        && z as i32 + offset.2 < cell_bounds as i32
 }
 
 struct Camera {
@@ -481,7 +570,7 @@ impl CameraUniform {
     }
 }
 
-struct State {
+pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -511,17 +600,47 @@ struct State {
     ticks: u64,
     backend: wgpu::Backend,
 
-    p_tk: ToggleKey,
-    rmb_tk: ToggleKey,
-
     paused: bool,
+    cross_section: bool,
 
     scissor_rect: (u32, u32, u32, u32),
 
     cells: Vec<Cell>,
+
+    state: u32,
+    survival: [bool; 27],
+    spawn: [bool; 27],
+    moore_offsets: bool,
+
+    wrapped_mode: bool,
+
+    cell_bounds: u32,
+
+    draw_mode: DrawMode,
+
+    state_colors: Vec<[f32; 3]>,
 }
 impl State {
     async fn new(window: &Window) -> Self {
+        let state = 10;
+        let survival = [
+            false, false, true, false, false, false, true, false, false, true, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false,
+        ];
+        let spawn = [
+            false, false, false, false, true, false, true, false, true, true, false, false, false,
+            false, false, false, false, false, false, false, false, false, false, false, false,
+            false, false,
+        ];
+        let moore_offsets = true;
+        let wrapped_mode = false;
+        let cell_bounds = 96;
+
+        let state_based = StateBased::DualColorDying([191, 97, 106]);
+        let draw_mode = DrawMode::StateBased(state_based);
+        let state_colors: Vec<[f32; 3]> = state_based.create_colors(state);
+
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -590,13 +709,12 @@ impl State {
             aspect: size.width as f32 / size.height as f32,
             fovy: 45.,
             znear: 0.01,
-            zfar: 300.,
+            zfar: cell_bounds as f32 * 5.,
             lat: 0.35,
             lon: 0.35,
-            radius: CELL_BOUNDS as f64 * 2.5,
+            radius: cell_bounds as f64 * 2.5,
             turn_speed: std::f64::consts::PI / 4.,
-            zoom_speed: CELL_BOUNDS as f64 / 4.,
-            drag_speed: 1. / 200.,
+            zoom_speed: cell_bounds as f64 / 4.,
             up_down: false,
             down_down: false,
             left_down: false,
@@ -697,8 +815,8 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
+            contents: bytemuck::cast_slice(VERTICES_LIGHTING),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
@@ -708,10 +826,12 @@ impl State {
         let num_indices = INDICES.len() as u32;
 
         let mut instance_data: Vec<InstanceRaw> = Vec::new();
-        let cells: Vec<Cell> = Self::create_cells();
-        for cell in cells.iter() {
-            instance_data.push(cell.create_instance().to_raw());
+        println!("CCC");
+        let cells: Vec<Cell> = Self::create_cells(cell_bounds);
+        for _cell in cells.iter() {
+            instance_data.push(InstanceRaw::default());
         }
+        println!("DDD");
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -727,12 +847,12 @@ impl State {
         let delta = 0.2;
         let ticks = 0;
 
-        let p_tk = ToggleKey::new();
-        let rmb_tk = ToggleKey::new();
-
         let paused = false;
+        let cross_section = false;
 
         let scissor_rect = (0, 0, size.width, size.height);
+
+        println!("AAAA");
 
         Self {
             surface,
@@ -756,11 +876,18 @@ impl State {
             delta,
             ticks,
             backend,
-            p_tk,
-            rmb_tk,
             paused,
+            cross_section,
             scissor_rect,
+            cell_bounds,
             cells,
+            survival,
+            spawn,
+            state,
+            moore_offsets,
+            wrapped_mode,
+            draw_mode,
+            state_colors,
         }
     }
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -799,39 +926,16 @@ impl State {
             } => {
                 let pressed = *state == ElementState::Pressed;
                 match keycode {
-                    VirtualKeyCode::R => {
-                        if pressed {
-                            self.cells = Self::create_cells();
-                            self.ticks = 0;
-                        }
-                    }
                     VirtualKeyCode::Space => {
                         if pressed {
                             self.camera_staging.camera.lat = 0.35;
                             self.camera_staging.camera.lon = 0.35;
-                            self.camera_staging.camera.radius = CELL_BOUNDS as f64 * 2.5;
+                            self.camera_staging.camera.radius = self.cell_bounds as f64 * 2.5;
                             self.camera_staging.camera.update_eye();
-                        }
-                    }
-                    VirtualKeyCode::P => {
-                        if self.p_tk.down(pressed) {
-                            self.paused = !self.paused;
                         }
                     }
                     _ => {}
                 }
-            }
-            &WindowEvent::MouseInput {
-                state,
-                button: MouseButton::Right,
-                ..
-            } => {
-                if self.rmb_tk.down(state == ElementState::Pressed) {
-                    self.paused = !self.paused;
-                }
-                // } else if button == MouseButton::Left {
-                //     self.lmb_down = state == ElementState::Pressed;
-                // }
             }
             _ => {}
         }
@@ -839,7 +943,19 @@ impl State {
     }
     fn update(&mut self) {
         if !self.paused {
-            self.count_neighbors();
+            if self.wrapped_mode {
+                self.count_neighbors_wrapped(if self.moore_offsets {
+                    &M_OFFSETS
+                } else {
+                    &VN_OFFSETS
+                });
+            } else {
+                self.count_neighbors(if self.moore_offsets {
+                    &M_OFFSETS
+                } else {
+                    &VN_OFFSETS
+                });
+            }
             self.sync_cells();
             self.ticks += 1;
         }
@@ -906,8 +1022,33 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instance_data.len() as u32)
         }
 
+        let mut survival_text = String::from("");
+        let mut spawn_text = String::from("");
+        for i in 0..26 {
+            if self.survival[i] {
+                survival_text.push_str(&i.to_string());
+                survival_text.push_str(",");
+            }
+            if self.spawn[i] {
+                spawn_text.push_str(&i.to_string());
+                spawn_text.push_str(",");
+            }
+        }
+        survival_text.pop();
+        spawn_text.pop();
+        
+        let neighborhood_text = if self.moore_offsets {
+            "Moore"
+        } else {
+            "Von Neumann"
+        };
+        let rules_str = format!(
+            "Rule: {} / {} / {} / {}\n",
+            survival_text, spawn_text, self.state, neighborhood_text
+        );
         let fps_str = format!("FPS: {:.0}\n", 1. / self.delta);
         let ticks_str = format!("Ticks: {}\n", self.ticks);
+        let bounds_str = format!("Cell bounds: {}\n", self.cell_bounds);
         let backend_str = format!("Backend: {:?}\n", self.backend);
         let font_size = self.scissor_rect.2 as f32 / 75.;
 
@@ -917,12 +1058,22 @@ impl State {
                 self.scissor_rect.1 as f32 + self.scissor_rect.2 as f32 / 100.,
             ))
             .add_text(
+                glyph_brush::Text::new(&rules_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size * 1.5),
+            )
+            .add_text(
                 glyph_brush::Text::new(&fps_str[..])
                     .with_color(TEXT_COLOR)
                     .with_scale(font_size),
             )
             .add_text(
                 glyph_brush::Text::new(&ticks_str[..])
+                    .with_color(TEXT_COLOR)
+                    .with_scale(font_size),
+            )
+            .add_text(
+                glyph_brush::Text::new(&bounds_str[..])
                     .with_color(TEXT_COLOR)
                     .with_scale(font_size),
             )
@@ -956,56 +1107,105 @@ impl State {
 
     fn calc_instance_data(&mut self) {
         self.instance_data.clear();
-        for cell in self.cells.iter() {
-            if cell.should_draw() {
-                self.instance_data.push(cell.create_instance().to_raw());
-            }
-        }
-    }
-    fn create_cells() -> Vec<Cell> {
-        let mut rng = rand::thread_rng();
-        let mut cells = Vec::new();
-        for x in 0..CELL_BOUNDS {
-            for y in 0..CELL_BOUNDS {
-                for z in 0..CELL_BOUNDS {
-                    let mut cell = Cell::new(
-                        cgmath::Vector3 {
-                            x: x as f32,
-                            y: y as f32,
-                            z: z as f32,
-                        } - INSTANCE_DISPLACEMENT,
-                        -1,
-                    );
-                    if x >= CELL_BOUNDS / 3
-                        && x <= CELL_BOUNDS * 2 / 3
-                        && y >= CELL_BOUNDS / 3
-                        && y <= CELL_BOUNDS * 2 / 3
-                        && z >= CELL_BOUNDS / 3
-                        && z <= CELL_BOUNDS * 2 / 3
-                        && ALIVE_CHANCE_ON_START < rng.gen()
-                    {
-                        cell.hp = STATE as i32;
+        match self.draw_mode {
+            DrawMode::StateBased(_) => {
+                for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                    if self.cells[i].should_draw() {
+                        self.instance_data.push(
+                            self.cells[i]
+                                .create_instance_state_based(&self.state_colors)
+                                .to_raw(),
+                        );
                     }
-                    cells.push(cell);
+                }
+            }
+            DrawMode::PositionBased(pos_based) => {
+                let offset = self.cell_bounds as f32 / 2.;
+                match pos_based {
+                    PositionBased::RgbCube() => {
+                        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                            if self.cells[i].should_draw() {
+                                self.instance_data.push(
+                                    self.cells[i]
+                                        .create_instance_rgb_cube(self.cell_bounds, offset)
+                                        .to_raw(),
+                                );
+                            }
+                        }
+                    }
+                    PositionBased::CenterDist(start_color) => {
+                        for i in 0..self.cells.len() / (1 + self.cross_section as usize) {
+                            if self.cells[i].should_draw() {
+                                self.instance_data.push(
+                                    self.cells[i]
+                                        .create_instance_center_dist(offset, &start_color)
+                                        .to_raw(),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
+    fn reset(&mut self) {
+        self.randomize_cells();
+        self.ticks = 0;
+    }
+    fn create_cells(cell_bounds: u32) -> Vec<Cell> {
+        let mut cells = Vec::new();
+        for x in 0..cell_bounds {
+            for y in 0..cell_bounds {
+                for z in 0..cell_bounds {
+                    cells.push(Cell::new(
+                        cgmath::Vector3 {
+                            x: x as f32 - cell_bounds as f32 / 2.,
+                            y: y as f32 - cell_bounds as f32 / 2.,
+                            z: z as f32 - cell_bounds as f32 / 2.,
+                        },
+                        -1,
+                    ));
                 }
             }
         }
         return cells;
     }
-    fn count_neighbors(&mut self) {
-        for x in 0..CELL_BOUNDS {
-            for y in 0..CELL_BOUNDS {
-                for z in 0..CELL_BOUNDS {
-                    let one_idx = three_to_one(x, y, z);
+    fn randomize_cells(&mut self) {
+        let mut rng = rand::thread_rng();
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    if x >= self.cell_bounds / 3
+                        && x <= self.cell_bounds * 2 / 3
+                        && y >= self.cell_bounds / 3
+                        && y <= self.cell_bounds * 2 / 3
+                        && z >= self.cell_bounds / 3
+                        && z <= self.cell_bounds * 2 / 3
+                        && ALIVE_CHANCE_ON_START > rng.gen()
+                    {
+                        self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = self.state as i32;
+                    } else {
+                        self.cells[three_to_one(x, y, z, self.cell_bounds)].hp = -1;
+                    }
+                }
+            }
+        }
+    }
+    fn count_neighbors(&mut self, offsets: &[(i32, i32, i32)]) {
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    let one_idx = three_to_one(x, y, z, self.cell_bounds);
                     self.cells[one_idx].neighbors = 0;
-                    for offset in NEIGHBOR_OFFSETS.iter() {
-                        if valid_idx(x, y, z, *offset) {
+                    for offset in offsets {
+                        if valid_idx(x, y, z, *offset, self.cell_bounds) {
                             if self.cells[three_to_one(
                                 (x as i32 + offset.0) as u32,
                                 (y as i32 + offset.1) as u32,
                                 (z as i32 + offset.2) as u32,
+                                self.cell_bounds,
                             )]
-                            .get_alive()
+                            .get_alive(self.state)
                             {
                                 self.cells[one_idx].neighbors += 1;
                             }
@@ -1015,9 +1215,66 @@ impl State {
             }
         }
     }
+    fn count_neighbors_wrapped(&mut self, offsets: &[(i32, i32, i32)]) {
+        for x in 0..self.cell_bounds {
+            for y in 0..self.cell_bounds {
+                for z in 0..self.cell_bounds {
+                    let one_idx = three_to_one(x, y, z, self.cell_bounds);
+                    self.cells[one_idx].neighbors = 0;
+                    for offset in offsets {
+                        if self.cells[three_to_one(
+                            // TODO: faster calc than rem_euclid() ??
+                            ((x as i32 + offset.0).rem_euclid(self.cell_bounds as i32)) as u32,
+                            ((y as i32 + offset.1).rem_euclid(self.cell_bounds as i32)) as u32,
+                            ((z as i32 + offset.2).rem_euclid(self.cell_bounds as i32)) as u32,
+                            self.cell_bounds,
+                        )]
+                        .get_alive(self.state)
+                        {
+                            self.cells[one_idx].neighbors += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
     fn sync_cells(&mut self) {
         for cell in self.cells.iter_mut() {
-            cell.sync();
+            cell.sync(self.survival, self.spawn, self.state);
+        }
+    }
+    fn update_cell_bounds(&mut self, old_bounds: u32) {
+        let mut new_cells = Self::create_cells(self.cell_bounds);
+        let start = (self.cell_bounds as i32 - old_bounds as i32) / 2;
+        let offset = (start, start, start);
+        for x in 0..old_bounds {
+            for y in 0..old_bounds {
+                for z in 0..old_bounds {
+                    if valid_idx(x, y, z, offset, self.cell_bounds) {
+                        let old_idx = three_to_one(x, y, z, old_bounds);
+                        let new_idx = three_to_one(
+                            (x as i32 + offset.0) as u32,
+                            (y as i32 + offset.1) as u32,
+                            (z as i32 + offset.2) as u32,
+                            self.cell_bounds,
+                        );
+                        new_cells[new_idx].hp = self.cells[old_idx].hp;
+                    }
+                }
+            }
+        }
+        self.cells = new_cells;
+        self.camera_staging.camera.radius *= self.cell_bounds as f64 / old_bounds as f64;
+    }
+    fn update_state_rule(&mut self, old_state: u32) {
+        for cell in self.cells.iter_mut() {
+            cell.update_state_rule(old_state, self.state);
+        }
+        match self.draw_mode {
+            DrawMode::StateBased(state_based) => {
+                self.state_colors = state_based.create_colors(self.state);
+            }
+            DrawMode::PositionBased(_) => {}
         }
     }
 }
@@ -1041,6 +1298,23 @@ pub async fn run() {
         .build(&event_loop)
         .unwrap();
 
+    let mut last_rule_survival: Vec<u32> = vec![2, 6, 9];
+    let mut last_rule_spawn: Vec<u32> = vec![4, 6, 8, 9];
+    let mut last_rule_state: u32 = 10;
+
+    let mut last_cell_bounds: u32 = 96;
+    let mut last_draw_mode: String = "DualColorDying".to_string();
+
+    let mut last_reset_flag: bool = false;
+
+    let mut last_dcd_alive_color: [u32; 3] = [191, 97, 106];
+    let mut last_sc_start_color: [u32; 3] = [255, 20, 20];
+    let mut last_dc_start_color: [u32; 3] = [163, 190, 140];
+    let mut last_dc_end_color: [u32; 3] = [191, 97, 106];
+    let mut last_cd_max_color: [u32; 3] = [50, 235, 130];
+
+    let mut last_vertex_lighting: bool = true;
+
     #[cfg(target_arch = "wasm32")]
     {
         window.set_inner_size(winit::dpi::PhysicalSize::new(800, 450));
@@ -1049,15 +1323,16 @@ pub async fn run() {
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
-                let dst = doc.get_element_by_id("body")?;
+                let div = doc.get_element_by_id("add_canvas_to")?;
                 let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
+                div.append_child(&canvas).ok()?;
                 Some(())
             })
-            .expect("Couldn't add canvas to doc");
+            .expect("Couldn't add elements to doc/window");
     }
 
     let mut state = State::new(&window).await;
+    state.randomize_cells();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -1087,6 +1362,246 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
+            #[cfg(target_arch = "wasm32")]
+            {
+                let document = web_sys::window().unwrap().document().unwrap();
+                let rule_state: u32 = document
+                    .get_element_by_id("state_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                let rule_survival: Vec<u32> = document
+                    .get_element_by_id("survival_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let rule_spawn: Vec<u32> = document
+                    .get_element_by_id("spawn_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let cell_bounds: u32 = document
+                    .get_element_by_id("cell_bounds_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+
+                let rule_neighborhood: bool = document
+                    .get_element_by_id("neighborhood_rule_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.moore_offsets = rule_neighborhood;
+
+                let wrapped_mode: bool = document
+                    .get_element_by_id("wrap_neighborhood_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.wrapped_mode = wrapped_mode;
+
+                let draw_mode: String = document
+                    .get_element_by_id("draw_mode_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value();
+
+                let paused: bool = document
+                    .get_element_by_id("paused_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.paused = paused;
+
+                let cross_section: bool = document
+                    .get_element_by_id("cross_section_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+                state.cross_section = cross_section;
+
+                let reset_flag: bool = document
+                    .get_element_by_id("reset_cells_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .parse()
+                    .unwrap();
+
+                let dcd_alive: Vec<u32> = document
+                    .get_element_by_id("dcd_alive_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dcd_alive_color: [u32; 3] = [dcd_alive[0], dcd_alive[1], dcd_alive[2]];
+
+                let sc_start: Vec<u32> = document
+                    .get_element_by_id("sc_start_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let sc_start_color: [u32; 3] = [sc_start[0], sc_start[1], sc_start[2]];
+
+                let dc_start: Vec<u32> = document
+                    .get_element_by_id("dc_start_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dc_start_color: [u32; 3] = [dc_start[0], dc_start[1], dc_start[2]];
+
+                let dc_end: Vec<u32> = document
+                    .get_element_by_id("dc_end_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let dc_end_color: [u32; 3] = [dc_end[0], dc_end[1], dc_end[2]];
+
+                let cd_max: Vec<u32> = document
+                    .get_element_by_id("cd_max_color_rust")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .value()
+                    .split(",")
+                    .collect::<Vec<&str>>()
+                    .iter()
+                    .map(|x| x.parse::<u32>().unwrap())
+                    .collect();
+                let cd_max_color: [u32; 3] = [cd_max[0], cd_max[1], cd_max[2]];
+
+                let vertex_lighting: bool = document
+                    .get_element_by_id("vertex_lighting_input")
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .unwrap()
+                    .checked();
+
+                if last_rule_state != rule_state {
+                    state.state = rule_state;
+                    state.update_state_rule(last_rule_state);
+                    last_rule_state = rule_state;
+                }
+                if last_rule_survival != rule_survival {
+                    for i in 0..26 {
+                        state.survival[i] = rule_survival.contains(&(i as u32));
+                    }
+                    last_rule_survival = rule_survival;
+                }
+                if last_rule_spawn != rule_spawn {
+                    for i in 0..26 {
+                        state.spawn[i] = rule_spawn.contains(&(i as u32));
+                    }
+                    last_rule_spawn = rule_spawn;
+                }
+                if last_cell_bounds != cell_bounds {
+                    state.cell_bounds = cell_bounds;
+                    state.update_cell_bounds(last_cell_bounds);
+                    last_cell_bounds = cell_bounds;
+                }
+                if last_draw_mode != draw_mode
+                    || last_dcd_alive_color != dcd_alive_color
+                    || last_sc_start_color != sc_start_color
+                    || last_dc_start_color != dc_start_color
+                    || last_dc_end_color != dc_end_color
+                    || last_cd_max_color != cd_max_color
+                {
+                    let draw_mode_str = draw_mode.as_str();
+                    if draw_mode_str == "RGB" {
+                        state.draw_mode = DrawMode::PositionBased(PositionBased::RgbCube());
+                    } else if draw_mode_str == "CenterDist" {
+                        state.draw_mode =
+                            DrawMode::PositionBased(PositionBased::CenterDist(cd_max_color));
+                        last_cd_max_color = cd_max_color;
+                    } else {
+                        let mut state_based: StateBased =
+                            StateBased::DualColor(dc_start_color, dc_end_color);
+                        last_dc_start_color = dc_start_color;
+                        last_dc_end_color = dc_end_color;
+                        if draw_mode_str == "DualColorDying" {
+                            state_based = StateBased::DualColorDying(dcd_alive_color);
+                            last_dcd_alive_color = dcd_alive_color;
+                        } else if draw_mode_str == "SingleColor" {
+                            state_based = StateBased::SingleColor(sc_start_color);
+                            last_sc_start_color = sc_start_color;
+                        }
+                        state.draw_mode = DrawMode::StateBased(state_based);
+                        state.state_colors = state_based.create_colors(state.state);
+                    }
+                    last_draw_mode = draw_mode;
+                }
+                if last_reset_flag != reset_flag {
+                    state.reset();
+                    last_reset_flag = reset_flag;
+                }
+                if last_vertex_lighting != vertex_lighting {
+                    state.queue.write_buffer(
+                        &state.vertex_buffer,
+                        0,
+                        bytemuck::cast_slice(if vertex_lighting {
+                            VERTICES_LIGHTING
+                        } else {
+                            VERTICES_NO_LIGHTING
+                        }),
+                    );
+                    last_vertex_lighting = vertex_lighting;
+                }
+            }
             state.update();
             match state.render() {
                 Ok(_) => {}
